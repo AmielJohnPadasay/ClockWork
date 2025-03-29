@@ -1,4 +1,6 @@
 import sys
+import mysql.connector
+from mysql.connector import errorcode
 from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
@@ -47,8 +49,14 @@ class MainApp:
         self.profile_window = self.loader.load("profile.ui", None)
         self.profile_window.setWindowModality(Qt.ApplicationModal)
 
+        self.edit_profile_window = self.loader.load("edit_profile.ui", None)
+        self.edit_profile_window.setWindowModality(Qt.ApplicationModal)
+
         self.select_role_window = self.loader.load("select_role.ui", None)
         self.select_role_window.setWindowModality(Qt.ApplicationModal)
+
+        self.supervisor_fingerprint_window = self.loader.load("supervisor_fingerprint.ui", None)
+        self.supervisor_fingerprint_window.setWindowModality(Qt.ApplicationModal)
 
         # Connection of Buttons
         # Log-In Page
@@ -177,6 +185,13 @@ class MainApp:
 
     def show_profile(self):
         self.profile_window.show()
+
+        self.edit_profile_btn = self.profile_window.findChild(QWidget, "edit_profile_btn")
+        if self.edit_profile_btn:
+            self.edit_profile_btn.clicked.connect(self.show_edit_profile)
+
+    def show_edit_profile(self):
+        self.edit_profile_window.show()
 
     def show_select_role(self):
         self.select_role_window.show()
