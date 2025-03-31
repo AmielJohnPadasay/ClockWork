@@ -1,6 +1,4 @@
 import sys
-import mysql.connector
-from mysql.connector import errorcode
 from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
