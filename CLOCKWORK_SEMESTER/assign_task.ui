@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>498</width>
-    <height>450</height>
+    <width>485</width>
+    <height>463</height>
    </rect>
   </property>
   <property name="font">
@@ -26,11 +26,15 @@
       <string>Task Details</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="taskname_edit"/>
+      <item row="0" column="0">
+       <widget class="QLabel" name="name_task_label">
+        <property name="text">
+         <string>Name of Task</string>
+        </property>
+       </widget>
       </item>
-      <item row="2" column="0" colspan="2">
-       <widget class="QTextEdit" name="taskreq_edit"/>
+      <item row="0" column="1" colspan="4">
+       <widget class="QLineEdit" name="taskname_edit"/>
       </item>
       <item row="1" column="0" colspan="2">
        <widget class="QLabel" name="req_task_label">
@@ -39,12 +43,42 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="name_task_label">
+      <item row="1" column="2">
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>101</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="1" column="3">
+       <widget class="QRadioButton" name="weblink_radio">
         <property name="text">
-         <string>Name of Task</string>
+         <string>Web Link</string>
         </property>
        </widget>
+      </item>
+      <item row="1" column="4">
+       <widget class="QRadioButton" name="file_radio">
+        <property name="text">
+         <string>File</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QLabel" name="task_description">
+        <property name="text">
+         <string>Task Description</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="5">
+       <widget class="QTextEdit" name="taskreq_edit"/>
       </item>
      </layout>
     </widget>
@@ -55,64 +89,37 @@
       <string>Assign Task</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="0">
-       <widget class="QRadioButton" name="radioButton">
-        <property name="text">
-         <string>Group</string>
-        </property>
-       </widget>
+      <item row="2" column="2" colspan="2">
+       <widget class="QDateEdit" name="duedateEdit"/>
       </item>
-      <item row="0" column="1" colspan="2">
-       <widget class="QRadioButton" name="radioButton_2">
-        <property name="text">
-         <string>Specific Member</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="3" colspan="2">
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Orientation::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>228</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="1" column="0" colspan="2">
-       <widget class="QLabel" name="assign_members_label">
-        <property name="text">
-         <string>Members</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2" colspan="3">
+      <item row="0" column="2" colspan="3">
        <widget class="QLineEdit" name="search_bar_assign">
         <property name="placeholderText">
          <string>Search...</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="2" colspan="3">
+      <item row="1" column="2" colspan="3">
        <widget class="QListWidget" name="assign_member_group_list"/>
       </item>
-      <item row="3" column="2" colspan="2">
-       <widget class="QDateEdit" name="duedateEdit"/>
-      </item>
-      <item row="3" column="4">
+      <item row="2" column="4">
        <widget class="QTimeEdit" name="duetimeEdit"/>
       </item>
-      <item row="3" column="0" colspan="2">
+      <item row="2" column="0" colspan="2">
        <widget class="QLabel" name="duedate_label">
         <property name="text">
          <string>Due Date</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0" colspan="2">
+      <item row="0" column="0" colspan="2">
+       <widget class="QLabel" name="assign_members_label">
+        <property name="text">
+         <string>Members</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
        <spacer name="verticalSpacer">
         <property name="orientation">
          <enum>Qt::Orientation::Vertical</enum>
@@ -146,6 +153,9 @@
      <property name="text">
       <string>OK</string>
      </property>
+     <property name="shortcut">
+      <string>Return</string>
+     </property>
     </widget>
    </item>
    <item row="2" column="2">
@@ -157,6 +167,18 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>ok_btn</tabstop>
+  <tabstop>cancel_btn</tabstop>
+  <tabstop>taskname_edit</tabstop>
+  <tabstop>weblink_radio</tabstop>
+  <tabstop>file_radio</tabstop>
+  <tabstop>taskreq_edit</tabstop>
+  <tabstop>search_bar_assign</tabstop>
+  <tabstop>assign_member_group_list</tabstop>
+  <tabstop>duedateEdit</tabstop>
+  <tabstop>duetimeEdit</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

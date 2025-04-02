@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>321</width>
+    <width>275</width>
     <height>172</height>
    </rect>
   </property>
@@ -21,7 +21,7 @@
      </property>
      <property name="sizeHint" stdset="0">
       <size>
-       <width>4</width>
+       <width>2</width>
        <height>20</height>
       </size>
      </property>
@@ -35,7 +35,7 @@
      <property name="sizeHint" stdset="0">
       <size>
        <width>20</width>
-       <height>197</height>
+       <height>97</height>
       </size>
      </property>
     </spacer>
@@ -82,7 +82,7 @@
      <property name="sizeHint" stdset="0">
       <size>
        <width>20</width>
-       <height>197</height>
+       <height>97</height>
       </size>
      </property>
     </spacer>
@@ -94,7 +94,7 @@
      </property>
      <property name="sizeHint" stdset="0">
       <size>
-       <width>0</width>
+       <width>5</width>
        <height>20</height>
       </size>
      </property>
@@ -103,17 +103,17 @@
    <item row="1" column="1" colspan="3">
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>Please put your finger to the scanner to confirm action.</string>
+      <string>Please put your finger to the scanner to log-in.</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
    </item>
-   <item row="2" column="1" colspan="3">
-    <layout class="QHBoxLayout" name="horizontalLayout">
+   <item row="2" column="0" colspan="5">
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <spacer name="horizontalSpacer_4">
+      <spacer name="horizontalSpacer_5">
        <property name="orientation">
         <enum>Qt::Orientation::Horizontal</enum>
        </property>
@@ -126,14 +126,14 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="pushButton">
+      <widget class="QPushButton" name="pushButton_2">
        <property name="text">
         <string>Cancel</string>
        </property>
       </widget>
      </item>
      <item>
-      <spacer name="horizontalSpacer_3">
+      <spacer name="horizontalSpacer_6">
        <property name="orientation">
         <enum>Qt::Orientation::Horizontal</enum>
        </property>

@@ -1,14 +1,17 @@
 import sys
-from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox
+from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
+
+email = "amiel.padasay004@gmail.com"
+password = "20amiel04"
 
 class MainApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
         self.loader = QUiLoader()
         self.current_dashboard = None
-
+        
         # Starting UIs
         self.login_window = self.loader.load("log_in_main.ui", None)
         self.create_account_window = self.loader.load("Create_Login.ui", None)
@@ -56,48 +59,76 @@ class MainApp:
         self.supervisor_fingerprint_window = self.loader.load("supervisor_fingerprint.ui", None)
         self.supervisor_fingerprint_window.setWindowModality(Qt.ApplicationModal)
 
-        # Connection of Buttons
-        # Log-In Page
+        self.setup_login_page()  # Setup the login page
+
+    # Log-In Page
+    def setup_login_page(self):
+        global email
+        global password
+
+        self.login_window.show()
+
+        self.email_lineedit = self.login_window.findChild(QLineEdit, "email_lineEdit")
+
+        self.password_lineedit = self.login_window.findChild(QLineEdit, "password_lineEdit")
+        self.password_lineedit.setEchoMode(QLineEdit.Password)
+
+        self.change_into_change_account_button = self.login_window.findChild(QWidget, "create_account_log_in_button_2")
+        if self.change_into_change_account_button:
+            self.change_into_change_account_button.clicked.connect(self.setup_create_account_page)
+
+        self.login_button = self.login_window.findChild(QWidget, "log_in_button")
+        if self.login_button:
+            self.login_button.clicked.connect(self.load_dashboard)
+
+        if self.email_lineedit.text() == email:
+            if self.password_lineedit.text() == password:
+                self.load_dashboard()
+
+    def setup_create_account_page(self):
+        self.create_account_window.show()
+        self.login_window.hide()
+        
         self.role_combo_box = self.create_account_window.findChild(QComboBox, "role_combo_box")
 
         self.change_into_log_in_button = self.create_account_window.findChild(QWidget, "change_into_log_in_button")
         if self.change_into_log_in_button:
             self.change_into_log_in_button.clicked.connect(self.show_login)
 
-        self.change_into_change_account_button = self.login_window.findChild(QWidget, "create_account_log_in_button_2")
-        if self.change_into_change_account_button:
-            self.change_into_change_account_button.clicked.connect(self.create_account)
-
         self.create_account_button = self.create_account_window.findChild(QWidget, "create_account_button")
         if self.create_account_button:
             self.create_account_button.clicked.connect(self.show_login) # To be changed to create account function
 
-        self.login_button = self.login_window.findChild(QWidget, "log_in_button")
-        if self.login_button:
-            self.login_button.clicked.connect(self.load_dashboard)
-        
-        self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
-        if self.log_out_button:
-            self.log_out_button.clicked.connect(self.log_out)
-
     def load_dashboard(self):
-        self.role = self.role_combo_box.currentText()
+        global email
+        global password
+        self.email = self.email_lineedit.text()
+        self.password = self.password_lineedit.text()
 
-        # Map roles to UI files
-        dashboard_files = {
-            "Supervisor": "dashboard.ui",
-            "Manager": "dashboard_manager_new.ui",
-            "Employee": "dashboard_employee_new.ui"
-        }
+        if self.email == email and self.password == password:
+            self.role = self.role_combo_box.currentText()
 
-        ui_file_path = dashboard_files.get(self.role)
+            # Map roles to UI files
+            dashboard_files = {
+                "Supervisor": "dashboard.ui",
+                "Manager": "dashboard_manager_new.ui",
+                "Employee": "dashboard_employee_new.ui"
+            }
 
-        if ui_file_path:
-            self.open_dashboard(ui_file_path)
+            ui_file_path = dashboard_files.get(self.role)
+
+            if ui_file_path:
+                self.open_dashboard(ui_file_path)
+        else:
+            print("Invalid email or password. Please try again.")
 
     def open_dashboard(self, ui_file_path):
-        # Load and display the correct dashboard
-        self.loader = QUiLoader()
+        global email
+        global password
+        self.email = self.email_lineedit.text()
+        self.password = self.password_lineedit.text()
+        self.role = self.role_combo_box.currentText()
+
         ui_file = QFile(ui_file_path)
         if ui_file.open(QFile.ReadOnly):
             self.current_dashboard = self.loader.load(ui_file, None)  # Store the dashboard instance
@@ -105,7 +136,8 @@ class MainApp:
             self.login_window.hide()
             ui_file.close()
             if self.role == "Supervisor":
-                self.setup_supervisor_dashboard()
+                if self.email == email and self.password == password:
+                    self.setup_supervisor_dashboard()
             elif self.role == "Manager":
                 self.setup_manager_dashboard()
             elif self.role == "Employee":
@@ -129,30 +161,14 @@ class MainApp:
         self.calendar_btn = self.current_dashboard.findChild(QWidget, "calendar_btn")
         if self.calendar_btn:
             self.calendar_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(2))
-
-        self.add_reminder_button = self.current_dashboard.findChild(QWidget, "add_reminder_button")
-        if self.add_reminder_button:
-            self.add_reminder_button.clicked.connect(self.show_add_reminder)
             
-        self.group_btn = self.current_dashboard.findChild(QWidget, "groups_btn")
-        if self.group_btn:
-            self.group_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(3))
-
         self.user_roles_btn = self.current_dashboard.findChild(QWidget, "user_roles_btn")
         if self.user_roles_btn:
-            self.user_roles_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(4))
+            self.user_roles_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(3))
 
         self.change_role_btn = self.current_dashboard.findChild(QWidget, "change_role_btn")
         if self.change_role_btn:
             self.change_role_btn.clicked.connect(self.show_select_role)
-
-        self.group_members_btn = self.current_dashboard.findChild(QWidget, "check_group_members_button")
-        if self.group_members_btn:
-            self.group_members_btn.clicked.connect(self.show_group_members)
-
-        self.create_group_btn = self.current_dashboard.findChild(QWidget, "create_group_button")
-        if self.create_group_btn:
-            self.create_group_btn.clicked.connect(self.create_group)
 
         self.validate_btn = self.current_dashboard.findChild(QWidget, "validatetask_btn")
         if self.validate_btn:
@@ -161,19 +177,10 @@ class MainApp:
         self.profile_btn = self.current_dashboard.findChild(QWidget, "profile_button")
         if self.profile_btn:
             self.profile_btn.clicked.connect(self.show_profile)
-
-    def show_add_reminder(self):
-        self.add_reminder_window.show()
-
-    def show_group_members(self):
-        self.group_members_window.show()
-        
-        self.add_member_btn = self.group_members_window.findChild(QWidget, "add_member_btn")
-        if self.add_member_btn:
-            self.add_member_btn.clicked.connect(self.add_member)
-
-    def add_member(self):
-        self.add_member_window.show()
+                
+        self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
+        if self.log_out_button:
+            self.log_out_button.clicked.connect(self.log_out)
 
     def create_group(self):
         self.create_group_window.show()
@@ -213,26 +220,18 @@ class MainApp:
         self.calendar_btn_manager = self.current_dashboard.findChild(QWidget, "calendar_btn")
         if self.calendar_btn_manager:
             self.calendar_btn_manager.clicked.connect(lambda: self.stacked_Manager.setCurrentIndex(2))
-        
-        self.group_btn_manager = self.current_dashboard.findChild(QWidget, "groups_btn")
-        if self.group_btn_manager:
-            self.group_btn_manager.clicked.connect(lambda: self.stacked_Manager.setCurrentIndex(3))
 
         self.assign_task_button = self.current_dashboard.findChild(QWidget, "assigntask_btn")
         if self.assign_task_button:
             self.assign_task_button.clicked.connect(self.show_assign_task)
 
-        self.add_reminder_button = self.current_dashboard.findChild(QWidget, "add_reminder_button")
-        if self.add_reminder_button:
-            self.add_reminder_button.clicked.connect(self.show_add_reminder)
-
-        self.group_members_btn = self.current_dashboard.findChild(QWidget, "check_group_members_button")
-        if self.group_members_btn:
-            self.group_members_btn.clicked.connect(self.show_group_members)
-
         self.profile_btn = self.current_dashboard.findChild(QWidget, "profile_button")
         if self.profile_btn:
             self.profile_btn.clicked.connect(self.show_profile)
+
+        self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
+        if self.log_out_button:
+            self.log_out_button.clicked.connect(self.log_out)
 
     def show_assign_task(self):
         self.assign_task_window.show()
@@ -252,39 +251,23 @@ class MainApp:
         if self.calendar_btn_employee:
             self.calendar_btn_employee.clicked.connect(lambda: self.stacked_Employee.setCurrentIndex(1))
 
-        self.group_btn_employee = self.current_dashboard.findChild(QWidget, "group_btn")
-        if self.group_btn_employee:
-            self.group_btn_employee.clicked.connect(lambda: self.stacked_Employee.setCurrentIndex(2))
-
-        self.add_reminder_button = self.current_dashboard.findChild(QWidget, "add_reminder_button")
-        if self.add_reminder_button:
-            self.add_reminder_button.clicked.connect(self.show_add_reminder)
-
         self.submit_task_button = self.current_dashboard.findChild(QWidget, "submit_task_btn")
         if self.submit_task_button:
             self.submit_task_button.clicked.connect(self.show_submit_task)
-        
-        self.join_group_button = self.current_dashboard.findChild(QWidget, "join_group_button")
-        if self.join_group_button:
-            self.join_group_button.clicked.connect(self.show_join_group)
-        
-        self.group_members_btn = self.current_dashboard.findChild(QWidget, "check_group_members_button")
-        if self.group_members_btn:
-            self.group_members_btn.clicked.connect(self.show_group_members)
 
         self.profile_btn = self.current_dashboard.findChild(QWidget, "profile_button")
         if self.profile_btn:
             self.profile_btn.clicked.connect(self.show_profile)
+                
+        self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
+        if self.log_out_button:
+            self.log_out_button.clicked.connect(self.log_out)
 
     def show_submit_task(self):
         self.submit_task_window.show()
 
     def show_join_group(self):
         self.join_group_window.show()
-
-    def create_account(self):
-        self.create_account_window.show()
-        self.login_window.hide()
 
     def show_login(self):
         self.login_window.show()

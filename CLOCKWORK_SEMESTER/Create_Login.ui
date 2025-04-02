@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>617</width>
+    <width>731</width>
     <height>728</height>
    </rect>
   </property>
@@ -21,15 +21,28 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_2">
-    <item row="1" column="0">
-     <spacer name="horizontalSpacer_7">
+    <item row="0" column="1">
+     <spacer name="verticalSpacer_5">
       <property name="orientation">
-       <enum>Qt::Orientation::Horizontal</enum>
+       <enum>Qt::Orientation::Vertical</enum>
       </property>
       <property name="sizeHint" stdset="0">
        <size>
-        <width>40</width>
-        <height>20</height>
+        <width>20</width>
+        <height>40</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item row="2" column="1">
+     <spacer name="verticalSpacer_6">
+      <property name="orientation">
+       <enum>Qt::Orientation::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>40</height>
        </size>
       </property>
      </spacer>
@@ -47,14 +60,27 @@
       </property>
      </spacer>
     </item>
+    <item row="1" column="0">
+     <spacer name="horizontalSpacer_7">
+      <property name="orientation">
+       <enum>Qt::Orientation::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>40</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
     <item row="1" column="1">
      <widget class="QGroupBox" name="create_account_box">
       <property name="title">
        <string/>
       </property>
       <layout class="QGridLayout" name="gridLayout">
-       <item row="10" column="2" colspan="2">
-        <widget class="QLabel" name="birthdate_label">
+       <item row="12" column="2" colspan="8">
+        <widget class="QLabel" name="password_label">
          <property name="font">
           <font>
            <family>Verdana</family>
@@ -62,11 +88,77 @@
           </font>
          </property>
          <property name="text">
-          <string>Birthdate</string>
+          <string>Password</string>
          </property>
         </widget>
        </item>
-       <item row="5" column="2" colspan="11">
+       <item row="9" column="12" colspan="2">
+        <widget class="QLineEdit" name="others_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2" colspan="12">
+        <spacer name="horizontalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>453</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="11" column="2">
+        <widget class="QLabel" name="role_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Role</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="12">
+        <widget class="QLineEdit" name="middle_initial_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="15" rowspan="13">
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>483</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="2" column="0" rowspan="13">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>483</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="5" column="2" colspan="12">
         <widget class="QLabel" name="email_label">
          <property name="font">
           <font>
@@ -79,7 +171,245 @@
          </property>
         </widget>
        </item>
-       <item row="8" column="12">
+       <item row="15" column="14" rowspan="2">
+        <spacer name="verticalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>51</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="4" column="2" colspan="12">
+        <widget class="QLabel" name="create_new_account_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Create New Account</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2" colspan="12">
+        <widget class="QLabel" name="main_logo">
+         <property name="minimumSize">
+          <size>
+           <width>300</width>
+           <height>150</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Shape::Box</enum>
+         </property>
+         <property name="text">
+          <string>Logo</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="7" colspan="5">
+        <widget class="QLineEdit" name="first_name_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="12">
+        <widget class="QLabel" name="middle_initial_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>M.I.</string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="2">
+        <widget class="QLabel" name="sex_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Sex</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1" colspan="14">
+        <spacer name="horizontalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>297</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="16" column="2" colspan="12">
+        <widget class="QPushButton" name="change_into_log_in_button">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Have an account? Log-In</string>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="6" colspan="2">
+        <widget class="QRadioButton" name="male_radio">
+         <property name="text">
+          <string>Male</string>
+         </property>
+        </widget>
+       </item>
+       <item row="17" column="2" colspan="12">
+        <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>472</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="10" column="2" colspan="3">
+        <widget class="QLabel" name="birthdate_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Birthdate</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="2" colspan="5">
+        <widget class="QLineEdit" name="last_name_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="7" colspan="4">
+        <widget class="QLabel" name="first_name_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>First Name</string>
+         </property>
+        </widget>
+       </item>
+       <item row="15" column="1" rowspan="2">
+        <spacer name="verticalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>51</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="9" column="8" colspan="2">
+        <widget class="QRadioButton" name="female_radio">
+         <property name="text">
+          <string>Female</string>
+         </property>
+        </widget>
+       </item>
+       <item row="15" column="2" colspan="12">
+        <widget class="QPushButton" name="create_account_button">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Create Account</string>
+         </property>
+         <property name="shortcut">
+          <string>Return</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="2" colspan="12">
+        <widget class="QLineEdit" name="email_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="13">
+        <widget class="QLabel" name="suffix_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Suffix</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="2" colspan="3">
+        <widget class="QLabel" name="last_name_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Last Name</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="13">
         <widget class="QComboBox" name="comboBox">
          <item>
           <property name="text">
@@ -118,7 +448,76 @@
          </item>
         </widget>
        </item>
-       <item row="11" column="3" colspan="10">
+       <item row="9" column="3" colspan="3">
+        <spacer name="horizontalSpacer_8">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>44</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="13" column="2" colspan="9">
+        <widget class="QLineEdit" name="password_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="14" column="2" colspan="9">
+        <spacer name="horizontalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>297</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="12" column="12" colspan="2">
+        <widget class="QLabel" name="confirm_password_label">
+         <property name="font">
+          <font>
+           <family>Verdana</family>
+           <pointsize>12</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Confirm Password</string>
+         </property>
+        </widget>
+       </item>
+       <item row="13" column="12" colspan="2">
+        <widget class="QLineEdit" name="confirm_password_edit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="14" column="12" colspan="2">
+        <spacer name="horizontalSpacer_5">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>226</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="10" column="12" colspan="2">
+        <widget class="QDateEdit" name="dateEdit"/>
+       </item>
+       <item row="11" column="12" colspan="2">
         <widget class="QComboBox" name="role_combo_box">
          <item>
           <property name="text">
@@ -142,73 +541,7 @@
          </item>
         </widget>
        </item>
-       <item row="8" column="11">
-        <widget class="QLineEdit" name="middle_initial_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="6" colspan="4">
-        <widget class="QLabel" name="first_name_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>First Name</string>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="7" colspan="2">
-        <widget class="QRadioButton" name="female_radio">
-         <property name="text">
-          <string>Female</string>
-         </property>
-        </widget>
-       </item>
-       <item row="14" column="2" colspan="7">
-        <spacer name="horizontalSpacer_2">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>297</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="7" column="2" colspan="2">
-        <widget class="QLabel" name="last_name_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Last Name</string>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="11">
-        <widget class="QLabel" name="middle_initial_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>M.I.</string>
-         </property>
-        </widget>
-       </item>
-       <item row="10" column="4" colspan="5">
+       <item row="10" column="5" colspan="6">
         <spacer name="horizontalSpacer_6">
          <property name="orientation">
           <enum>Qt::Orientation::Horizontal</enum>
@@ -221,345 +554,28 @@
          </property>
         </spacer>
        </item>
-       <item row="9" column="2">
-        <widget class="QLabel" name="sex_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Sex</string>
-         </property>
-        </widget>
-       </item>
-       <item row="8" column="6" colspan="5">
-        <widget class="QLineEdit" name="first_name_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="3" colspan="2">
-        <spacer name="horizontalSpacer_8">
+       <item row="11" column="3" colspan="8">
+        <spacer name="horizontalSpacer_10">
          <property name="orientation">
           <enum>Qt::Orientation::Horizontal</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>44</width>
+           <width>40</width>
            <height>20</height>
           </size>
          </property>
         </spacer>
        </item>
-       <item row="14" column="9" colspan="4">
-        <spacer name="horizontalSpacer_5">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>226</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="16" column="2" colspan="11">
-        <widget class="QPushButton" name="change_into_log_in_button">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Have an account? Log-In</string>
-         </property>
-         <property name="flat">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="17" column="2" colspan="11">
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>472</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="15" column="1" rowspan="2">
-        <spacer name="verticalSpacer_3">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>51</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="12" column="2" colspan="7">
-        <widget class="QLabel" name="password_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Password</string>
-         </property>
-        </widget>
-       </item>
-       <item row="13" column="9" colspan="4">
-        <widget class="QLineEdit" name="confirm_password_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="10" column="9" colspan="4">
-        <widget class="QDateEdit" name="dateEdit"/>
-       </item>
-       <item row="3" column="2" colspan="11">
-        <spacer name="horizontalSpacer_4">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>453</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="2" column="2" colspan="11">
-        <widget class="QLabel" name="main_logo">
-         <property name="minimumSize">
-          <size>
-           <width>300</width>
-           <height>150</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Shape::Box</enum>
-         </property>
-         <property name="text">
-          <string>Logo</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="9" colspan="2">
+       <item row="9" column="10" colspan="2">
         <widget class="QRadioButton" name="others_radio">
          <property name="text">
           <string>Others</string>
          </property>
         </widget>
        </item>
-       <item row="15" column="2" colspan="11">
-        <widget class="QPushButton" name="create_account_button">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Create Account</string>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="5" colspan="2">
-        <widget class="QRadioButton" name="male_radio">
-         <property name="text">
-          <string>Male</string>
-         </property>
-        </widget>
-       </item>
-       <item row="8" column="2" colspan="4">
-        <widget class="QLineEdit" name="last_name_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1" colspan="13">
-        <spacer name="horizontalSpacer_3">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>297</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="9" column="11" colspan="2">
-        <widget class="QLineEdit" name="others_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="12">
-        <widget class="QLabel" name="suffix_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Suffix</string>
-         </property>
-        </widget>
-       </item>
-       <item row="11" column="2">
-        <widget class="QLabel" name="role_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Role</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="2" colspan="11">
-        <widget class="QLabel" name="create_new_account_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Create New Account</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="15" column="13" rowspan="2">
-        <spacer name="verticalSpacer_4">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>51</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="13" column="2" colspan="7">
-        <widget class="QLineEdit" name="password_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="2" colspan="11">
-        <widget class="QLineEdit" name="email_edit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="12" column="9" colspan="4">
-        <widget class="QLabel" name="confirm_password_label">
-         <property name="font">
-          <font>
-           <family>Verdana</family>
-           <pointsize>12</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Confirm Password</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="14" rowspan="13">
-        <spacer name="verticalSpacer_2">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>483</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="2" column="0" rowspan="13">
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>483</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
       </layout>
      </widget>
-    </item>
-    <item row="2" column="1">
-     <spacer name="verticalSpacer_6">
-      <property name="orientation">
-       <enum>Qt::Orientation::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item row="0" column="1">
-     <spacer name="verticalSpacer_5">
-      <property name="orientation">
-       <enum>Qt::Orientation::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
     </item>
    </layout>
   </widget>
@@ -568,12 +584,29 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>617</width>
+     <width>731</width>
      <height>22</height>
     </rect>
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>create_account_button</tabstop>
+  <tabstop>change_into_log_in_button</tabstop>
+  <tabstop>email_edit</tabstop>
+  <tabstop>last_name_edit</tabstop>
+  <tabstop>first_name_edit</tabstop>
+  <tabstop>middle_initial_edit</tabstop>
+  <tabstop>comboBox</tabstop>
+  <tabstop>male_radio</tabstop>
+  <tabstop>female_radio</tabstop>
+  <tabstop>others_radio</tabstop>
+  <tabstop>others_edit</tabstop>
+  <tabstop>dateEdit</tabstop>
+  <tabstop>role_combo_box</tabstop>
+  <tabstop>password_edit</tabstop>
+  <tabstop>confirm_password_edit</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
