@@ -1,7 +1,10 @@
 import sys
+import mysql.connector
+from mysql.connector import errorcode as err
 from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
+from PySide6.QtWidgets import QMessageBox
 
 email = "amiel.padasay004@gmail.com"
 password = "20amiel04"
@@ -88,8 +91,9 @@ class MainApp:
     def setup_create_account_page(self):
         self.create_account_window.show()
         self.login_window.hide()
-        
-        self.role_combo_box = self.create_account_window.findChild(QComboBox, "role_combo_box")
+
+        # Remove role combo box and directly set role to "Supervisor"
+        self.role = "Supervisor"
 
         self.change_into_log_in_button = self.create_account_window.findChild(QWidget, "change_into_log_in_button")
         if self.change_into_log_in_button:
@@ -106,7 +110,7 @@ class MainApp:
         self.password = self.password_lineedit.text()
 
         if self.email == email and self.password == password:
-            self.role = self.role_combo_box.currentText()
+            self.role = "Supervisor"
 
             # Map roles to UI files
             dashboard_files = {
@@ -120,14 +124,18 @@ class MainApp:
             if ui_file_path:
                 self.open_dashboard(ui_file_path)
         else:
-            print("Invalid email or password. Please try again.")
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle("Login Failed")
+            msg_box.setText("Invalid email or password. Please try again.")
+            msg_box.exec()
 
     def open_dashboard(self, ui_file_path):
         global email
         global password
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
-        self.role = self.role_combo_box.currentText()
+        self.role = "Supervisor"
 
         ui_file = QFile(ui_file_path)
         if ui_file.open(QFile.ReadOnly):
@@ -181,9 +189,6 @@ class MainApp:
         self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
-
-    def create_group(self):
-        self.create_group_window.show()
 
     def validate_task(self):
         self.validate_task_window.show()
