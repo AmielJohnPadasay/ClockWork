@@ -10,6 +10,17 @@ from PySide6.QtWidgets import QMessageBox
 email = "a"
 password = "2"
 
+#Temporary containers for user data
+# These will be used to store user data temporarily before inserting into the database
+email_container = []
+password_container = []
+first_name_container = []
+last_name_container = []
+middle_initial_container = []
+role_container = []
+sex_container = []
+suffix_container = []
+
 class MainApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
@@ -94,6 +105,30 @@ class MainApp:
         self.create_account_window.show()
         self.login_window.hide()
 
+        self.email_edit = self.create_account_window.findChild(QLineEdit, "email_edit")
+        self.last_name_edit = self.create_account_window.findChild(QLineEdit, "last_name_edit")
+        self.first_name_edit = self.create_account_window.findChild(QLineEdit, "first_name_edit")
+        self.middle_init_edit = self.create_account_window.findChild(QLineEdit, "middle_initial_edit")
+        self.suffix_combobox = self.create_account_window.findChild(QComboBox, "suffix_combobox")
+        self.suffix_combobox.setCurrentIndex(0)
+
+        #For sex radio buttons
+        self.male_radio_btn = self.create_account_window.findChild(QRadioButton, "male_radio")
+        self.female_radio_btn = self.create_account_window.findChild(QRadioButton, "female_radio")
+        
+        self.others_radio_btn = self.create_account_window.findChild(QRadioButton, "others_radio")
+        self.others_edit = self.create_account_window.findChild(QLineEdit, "others_edit")
+        self.others_edit.setPlaceholderText("Please specify")
+
+        self.others_edit.setEnabled(False)
+        self.others_radio_btn.toggled.connect(lambda: self.others_edit.setEnabled(self.others_radio_btn.isChecked()))
+
+        #For passwords
+        self.password_edit = self.create_account_window.findChild(QLineEdit, "password_edit")
+        self.password_edit.setEchoMode(QLineEdit.Password)
+        self.confirm_password_edit = self.create_account_window.findChild(QLineEdit, "confirm_password_edit")
+        self.confirm_password_edit.setEchoMode(QLineEdit.Password)
+
         # Remove role combo box and directly set role to "Supervisor"
         self.role = "Supervisor"
 
@@ -103,7 +138,7 @@ class MainApp:
 
         self.create_account_button = self.create_account_window.findChild(QWidget, "create_account_button")
         if self.create_account_button:
-            self.create_account_button.clicked.connect(self.show_login) # To be changed to create account function
+            self.create_account_button.clicked.connect(self.show_login)
 
     def load_dashboard(self):
         global email

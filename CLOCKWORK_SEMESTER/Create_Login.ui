@@ -132,7 +132,7 @@
         </widget>
        </item>
        <item row="8" column="13">
-        <widget class="QComboBox" name="comboBox">
+        <widget class="QComboBox" name="suffix_combobox">
          <item>
           <property name="text">
            <string>-select-</string>
@@ -168,6 +168,16 @@
            <string>IV</string>
           </property>
          </item>
+         <item>
+          <property name="text">
+           <string>V</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>VI</string>
+          </property>
+         </item>
         </widget>
        </item>
        <item row="14" column="14" rowspan="2">
@@ -195,9 +205,6 @@
           <string>Email</string>
          </property>
         </widget>
-       </item>
-       <item row="10" column="12" colspan="2">
-        <widget class="QDateEdit" name="dateEdit"/>
        </item>
        <item row="7" column="13">
         <widget class="QLabel" name="suffix_label">
@@ -524,6 +531,9 @@
          </property>
         </spacer>
        </item>
+       <item row="10" column="11" colspan="3">
+        <widget class="QDateEdit" name="birthdate_edit"/>
+       </item>
       </layout>
      </widget>
     </item>
@@ -547,12 +557,12 @@
   <tabstop>last_name_edit</tabstop>
   <tabstop>first_name_edit</tabstop>
   <tabstop>middle_initial_edit</tabstop>
-  <tabstop>comboBox</tabstop>
+  <tabstop>suffix_combobox</tabstop>
   <tabstop>male_radio</tabstop>
   <tabstop>female_radio</tabstop>
   <tabstop>others_radio</tabstop>
   <tabstop>others_edit</tabstop>
-  <tabstop>dateEdit</tabstop>
+  <tabstop>birthdate_edit</tabstop>
   <tabstop>password_edit</tabstop>
   <tabstop>confirm_password_edit</tabstop>
  </tabstops>
