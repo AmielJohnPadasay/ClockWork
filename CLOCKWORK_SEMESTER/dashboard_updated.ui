@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>819</width>
+    <width>800</width>
     <height>671</height>
    </rect>
   </property>
@@ -223,6 +223,9 @@
              <property name="horizontalScrollMode">
               <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
              </property>
+             <property name="rowCount">
+              <number>0</number>
+             </property>
              <attribute name="horizontalHeaderDefaultSectionSize">
               <number>180</number>
              </attribute>
@@ -232,36 +235,6 @@
              <attribute name="verticalHeaderDefaultSectionSize">
               <number>50</number>
              </attribute>
-             <row/>
-             <row/>
-             <row/>
-             <row/>
-             <row/>
-             <column>
-              <property name="text">
-               <string>Task</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Members/Groups Assigned</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Status</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Priority Level</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Due Date</string>
-              </property>
-             </column>
             </widget>
            </item>
           </layout>
@@ -387,6 +360,9 @@
                  <property name="horizontalScrollMode">
                   <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
                  </property>
+                 <property name="rowCount">
+                  <number>0</number>
+                 </property>
                  <attribute name="horizontalHeaderCascadingSectionResizes">
                   <bool>true</bool>
                  </attribute>
@@ -399,36 +375,6 @@
                  <attribute name="verticalHeaderDefaultSectionSize">
                   <number>50</number>
                  </attribute>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <column>
-                  <property name="text">
-                   <string>Tasks</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Members/Groups Assigned</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Status</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Priority Level</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Due Date</string>
-                  </property>
-                 </column>
                 </widget>
                </item>
               </layout>
@@ -443,6 +389,9 @@
                  <property name="horizontalScrollMode">
                   <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
                  </property>
+                 <property name="rowCount">
+                  <number>0</number>
+                 </property>
                  <attribute name="horizontalHeaderCascadingSectionResizes">
                   <bool>true</bool>
                  </attribute>
@@ -455,36 +404,6 @@
                  <attribute name="verticalHeaderDefaultSectionSize">
                   <number>50</number>
                  </attribute>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <column>
-                  <property name="text">
-                   <string>Tasks</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Members/Groups Assigned</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Status</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Priority Level</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string>Due Date</string>
-                  </property>
-                 </column>
                 </widget>
                </item>
               </layout>
@@ -567,10 +486,10 @@
               <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
              </property>
              <property name="rowCount">
-              <number>5</number>
+              <number>0</number>
              </property>
              <property name="columnCount">
-              <number>3</number>
+              <number>0</number>
              </property>
              <attribute name="horizontalHeaderMinimumSectionSize">
               <number>160</number>
@@ -587,26 +506,6 @@
              <attribute name="verticalHeaderDefaultSectionSize">
               <number>50</number>
              </attribute>
-             <row/>
-             <row/>
-             <row/>
-             <row/>
-             <row/>
-             <column>
-              <property name="text">
-               <string>Users</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Role</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Employee ID</string>
-              </property>
-             </column>
             </widget>
            </item>
            <item row="0" column="0" colspan="2">
@@ -650,7 +549,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>819</width>
+     <width>800</width>
      <height>21</height>
     </rect>
    </property>

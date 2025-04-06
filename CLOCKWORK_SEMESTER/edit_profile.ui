@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>638</width>
-    <height>290</height>
+    <width>626</width>
+    <height>318</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,7 +21,7 @@
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="3" column="10">
-       <widget class="QLabel" name="suffix_label_2">
+       <widget class="QLabel" name="new_suffix_label">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -34,7 +34,7 @@
        </widget>
       </item>
       <item row="3" column="5">
-       <widget class="QLabel" name="first_name_label_2">
+       <widget class="QLabel" name="new_first_name">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -47,7 +47,7 @@
        </widget>
       </item>
       <item row="4" column="10">
-       <widget class="QComboBox" name="comboBox_2">
+       <widget class="QComboBox" name="suffix_combobox">
         <item>
          <property name="text">
           <string>-select-</string>
@@ -86,21 +86,21 @@
        </widget>
       </item>
       <item row="6" column="7">
-       <widget class="QRadioButton" name="others_radio_2">
+       <widget class="QRadioButton" name="new_others_label">
         <property name="text">
          <string>Others</string>
         </property>
        </widget>
       </item>
       <item row="6" column="8" colspan="3">
-       <widget class="QLineEdit" name="others_edit_2">
+       <widget class="QLineEdit" name="new_others_edit">
         <property name="text">
          <string/>
         </property>
        </widget>
       </item>
       <item row="3" column="2" colspan="2">
-       <widget class="QLabel" name="last_name_label_2">
+       <widget class="QLabel" name="new_last_name_label">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -113,17 +113,17 @@
        </widget>
       </item>
       <item row="7" column="5" colspan="6">
-       <widget class="QDateEdit" name="dateEdit_2"/>
+       <widget class="QDateEdit" name="new_birthdate_edit"/>
       </item>
       <item row="4" column="5" colspan="4">
-       <widget class="QLineEdit" name="first_name_edit_2">
+       <widget class="QLineEdit" name="new_first_name_edit">
         <property name="text">
          <string/>
         </property>
        </widget>
       </item>
       <item row="2" column="2" colspan="9">
-       <widget class="QLabel" name="create_new_account_label_2">
+       <widget class="QLabel" name="edit_profile">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -139,14 +139,14 @@
        </widget>
       </item>
       <item row="4" column="9">
-       <widget class="QLineEdit" name="middle_initial_edit_2">
+       <widget class="QLineEdit" name="new_middle_initial_edit">
         <property name="text">
          <string/>
         </property>
        </widget>
       </item>
       <item row="10" column="9">
-       <widget class="QPushButton" name="create_account_button_2">
+       <widget class="QPushButton" name="save_changes_btn">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -159,7 +159,7 @@
        </widget>
       </item>
       <item row="7" column="2">
-       <widget class="QLabel" name="birthdate_label_2">
+       <widget class="QLabel" name="new_birthdate_label">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -172,7 +172,7 @@
        </widget>
       </item>
       <item row="6" column="2">
-       <widget class="QLabel" name="sex_label_2">
+       <widget class="QLabel" name="new_sex_label">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -184,21 +184,8 @@
         </property>
        </widget>
       </item>
-      <item row="10" column="2" colspan="6">
-       <spacer name="horizontalSpacer_7">
-        <property name="orientation">
-         <enum>Qt::Orientation::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
       <item row="6" column="6">
-       <widget class="QRadioButton" name="female_radio_2">
+       <widget class="QRadioButton" name="new_female_radio">
         <property name="text">
          <string>Female</string>
         </property>
@@ -217,21 +204,8 @@
         </property>
        </spacer>
       </item>
-      <item row="1" column="1" colspan="11">
-       <spacer name="horizontalSpacer_14">
-        <property name="orientation">
-         <enum>Qt::Orientation::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>297</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
       <item row="6" column="5">
-       <widget class="QRadioButton" name="male_radio_2">
+       <widget class="QRadioButton" name="new_male_radio">
         <property name="text">
          <string>Male</string>
         </property>
@@ -250,22 +224,15 @@
         </property>
        </spacer>
       </item>
-      <item row="10" column="10">
-       <widget class="QPushButton" name="pushButton">
-        <property name="text">
-         <string>Cancel</string>
-        </property>
-       </widget>
-      </item>
       <item row="4" column="2" colspan="3">
-       <widget class="QLineEdit" name="last_name_edit_2">
+       <widget class="QLineEdit" name="new_last_name_edit">
         <property name="text">
          <string/>
         </property>
        </widget>
       </item>
       <item row="3" column="9">
-       <widget class="QLabel" name="middle_initial_label_2">
+       <widget class="QLabel" name="new_middle_initial_label">
         <property name="font">
          <font>
           <family>Verdana</family>
@@ -276,6 +243,32 @@
          <string>M.I.</string>
         </property>
        </widget>
+      </item>
+      <item row="10" column="10" colspan="3">
+       <widget class="QPushButton" name="new_cancel_btn">
+        <property name="font">
+         <font>
+          <family>Verdana</family>
+          <pointsize>11</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Cancel</string>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="0" colspan="8">
+       <spacer name="horizontalSpacer_7">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </widget>
