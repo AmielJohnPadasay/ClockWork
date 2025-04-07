@@ -1,7 +1,8 @@
 import sys
 import mysql.connector
+import datetime
 from mysql.connector import errorcode as err
-from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton
+from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
@@ -18,8 +19,9 @@ first_name_container = []
 last_name_container = []
 middle_initial_container = []
 role_container = []
-sex_container = []
+s_container = []
 suffix_container = []
+birthdate_container = []
 
 class MainApp:
     def __init__(self):
@@ -111,9 +113,11 @@ class MainApp:
         self.middle_init_edit = self.create_account_window.findChild(QLineEdit, "middle_initial_edit")
         self.suffix_combobox = self.create_account_window.findChild(QComboBox, "suffix_combobox")
         self.suffix_combobox.setCurrentIndex(0)
+        self.birthdate_edit = self.create_account_window.findChild(QDateEdit, "birthdate_edit")
 
         #For sex radio buttons
         self.male_radio_btn = self.create_account_window.findChild(QRadioButton, "male_radio")
+        self.male_radio_btn.setChecked(True)
         self.female_radio_btn = self.create_account_window.findChild(QRadioButton, "female_radio")
         
         self.others_radio_btn = self.create_account_window.findChild(QRadioButton, "others_radio")
@@ -122,6 +126,11 @@ class MainApp:
 
         self.others_edit.setEnabled(False)
         self.others_radio_btn.toggled.connect(lambda: self.others_edit.setEnabled(self.others_radio_btn.isChecked()))
+
+        #For date of birth
+        self.birthdate_edit.setDisplayFormat("yyyy-MM-dd")
+        self.birthdate_edit.setCalendarPopup(True)
+        self.birthdate_edit.setDate(datetime.date.today())
 
         #For passwords
         self.password_edit = self.create_account_window.findChild(QLineEdit, "password_edit")
@@ -137,8 +146,93 @@ class MainApp:
             self.change_into_log_in_button.clicked.connect(self.show_login)
 
         self.create_account_button = self.create_account_window.findChild(QWidget, "create_account_button")
+
         if self.create_account_button:
-            self.create_account_button.clicked.connect(self.show_login)
+            self.create_account_button.clicked.connect(self.validate_create_account)
+
+    def validate_create_account(self):
+        # Error handling for empty fields
+        if not self.email_edit.text() or not self.last_name_edit.text() or not self.first_name_edit.text() or not self.middle_init_edit.text() or not self.password_edit.text() or not self.confirm_password_edit.text():
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle("Empty Fields")
+            msg_box.setText("Please fill in all fields.")
+            msg_box.exec()
+            return self.setup_create_account_page()
+
+        # Check if "gmail.com" is in the email field
+        if "gmail.com" not in self.email_edit.text():
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle("Invalid Email")
+            msg_box.setText("Please enter a valid Gmail address.")
+            msg_box.exec()
+            return self.setup_create_account_page()
+
+        # Check if the password is at least 8 characters long
+        if len(self.password_edit.text()) < 8:
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle("Invalid Password")
+            msg_box.setText("Password must be at least 8 characters long.")
+            msg_box.exec()
+            return self.setup_create_account_page()
+
+        # Check if the password and confirm password match
+        if self.password_edit.text() != self.confirm_password_edit.text():
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle("Password Mismatch")
+            msg_box.setText("Passwords do not match.")
+            msg_box.exec()
+            return self.setup_create_account_page()
+
+        # Check if the email already exists in the database
+        if self.email_edit.text() in email_container:
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle("Email Already Exists")
+            msg_box.setText("This email is already registered.")
+            msg_box.exec()
+            return self.setup_create_account_page()
+
+        # If all validations pass, store the account into the database
+        self.store_into_database()
+       
+    def store_into_database(self):
+        new_email = self.email_edit.text()
+        new_password = self.password_edit.text()
+        new_first_name = self.first_name_edit.text()
+        new_last_name = self.last_name_edit.text()
+        new_middle_initial = self.middle_init_edit.text()
+        new_suffix = self.suffix_combobox.currentText()
+        new_birthdate = self.birthdate_edit.text()
+
+        if self.male_radio_btn.isChecked():
+            selected_s = "Male"
+        elif self.female_radio_btn.isChecked():
+            selected_s = "Female"
+        elif self.others_radio_btn.isChecked():
+            selected_s = self.others_edit.text()
+
+        #Append data to temporary containers
+        email_container.append(new_email)
+        password_container.append(new_password)
+        first_name_container.append(new_first_name)
+        last_name_container.append(new_last_name)
+        middle_initial_container.append(new_middle_initial)
+        suffix_container.append(new_suffix)
+        s_container.append(selected_s)
+        birthdate_container.append(new_birthdate)
+
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setWindowTitle("Account Created")
+        msg_box.setText("Account created successfully!")
+        msg_box.exec()
+
+        self.create_account_window.hide()
+        self.setup_login_page()
 
     def load_dashboard(self):
         global email
