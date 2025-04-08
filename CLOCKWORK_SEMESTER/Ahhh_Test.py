@@ -76,14 +76,31 @@ class MainApp:
         self.supervisor_fingerprint_window = self.loader.load("supervisor_fingerprint.ui", None)
         self.supervisor_fingerprint_window.setWindowModality(Qt.ApplicationModal)
 
+        self.register_fingerprint_window = self.loader.load("register_fingerprint.ui", None)
+        self.register_fingerprint_window.setWindowModality(Qt.ApplicationModal)
+
         self.setup_login_page()  # Setup the login page
 
     # Log-In Page
     def setup_login_page(self):
         global email
         global password
+        global email_container
+        global password_container
+        global role_container
 
         self.login_window.show()
+
+        self.log_in_stacked = self.login_window.findChild(QStackedWidget, "log_in_stacked")
+        self.log_in_stacked.setCurrentIndex(1)
+
+        self.log_in_credentials_btn = self.login_window.findChild(QWidget, "log_in_credentials_btn")
+        if self.log_in_credentials_btn:
+            self.log_in_credentials_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(0))
+
+        self.log_in_fingerprint_btn = self.login_window.findChild(QWidget, "log_in_fingerprint_btn")
+        if self.log_in_fingerprint_btn:
+            self.log_in_fingerprint_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(1))
 
         self.email_lineedit = self.login_window.findChild(QLineEdit, "email_lineEdit")
 
@@ -98,14 +115,16 @@ class MainApp:
         if self.login_button:
             self.login_button.clicked.connect(self.load_dashboard)
 
-        if self.email_lineedit.text() == email:
-            if self.password_lineedit.text() == password:
-                self.load_dashboard()
+        # Ensure the login failed message box does not appear on program start
+        self.email_lineedit.textChanged.connect(lambda: None)
+        self.password_lineedit.textChanged.connect(lambda: None)
+
 
     def setup_create_account_page(self): # Next function to be created
         self.create_account_window.setWindowTitle("Create Account")
         self.create_account_window.show()
         self.login_window.hide()
+
 
         self.email_edit = self.create_account_window.findChild(QLineEdit, "email_edit")
         self.last_name_edit = self.create_account_window.findChild(QLineEdit, "last_name_edit")
@@ -138,7 +157,7 @@ class MainApp:
         self.confirm_password_edit = self.create_account_window.findChild(QLineEdit, "confirm_password_edit")
         self.confirm_password_edit.setEchoMode(QLineEdit.Password)
 
-        # Remove role combo box and directly set role to "Supervisor"
+        #Remove role combo box and directly set role to "Supervisor" #To be removed
         self.role = "Supervisor"
 
         self.change_into_log_in_button = self.create_account_window.findChild(QWidget, "change_into_log_in_button")
@@ -153,53 +172,67 @@ class MainApp:
     def validate_create_account(self):
         # Error handling for empty fields
         if not self.email_edit.text() or not self.last_name_edit.text() or not self.first_name_edit.text() or not self.middle_init_edit.text() or not self.password_edit.text() or not self.confirm_password_edit.text():
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Empty Fields")
-            msg_box.setText("Please fill in all fields.")
-            msg_box.exec()
-            return self.setup_create_account_page()
+            empty_msg_box = QMessageBox()
+            empty_msg_box.setIcon(QMessageBox.Warning)
+            empty_msg_box.setWindowTitle("Empty Fields")
+            empty_msg_box.setText("Please fill in all fields.")
+            empty_msg_box.exec()
+            return
 
-        # Check if "gmail.com" is in the email field
-        if "gmail.com" not in self.email_edit.text():
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Invalid Email")
-            msg_box.setText("Please enter a valid Gmail address.")
-            msg_box.exec()
-            return self.setup_create_account_page()
-
+        # Check if "@gmail.com" and "@yahoo.com" and is in the email field
+        elif "@gmail.com" and "@yahoo.com" not in self.email_edit.text():
+            invalid_email_msg_box = QMessageBox()
+            invalid_email_msg_box.setIcon(QMessageBox.Warning)
+            invalid_email_msg_box.setWindowTitle("Invalid Email")
+            invalid_email_msg_box.setText("Please enter a valid Gmail address.")
+            invalid_email_msg_box.exec()
+            return 
+        
         # Check if the password is at least 8 characters long
-        if len(self.password_edit.text()) < 8:
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Invalid Password")
-            msg_box.setText("Password must be at least 8 characters long.")
-            msg_box.exec()
-            return self.setup_create_account_page()
+        elif len(self.password_edit.text()) < 8:
+            less_8_msg_box = QMessageBox()
+            less_8_msg_box.setIcon(QMessageBox.Warning)
+            less_8_msg_box.setWindowTitle("Invalid Password")
+            less_8_msg_box.setText("Password must be at least 8 characters long.")
+            less_8_msg_box.exec()
+            return
 
         # Check if the password and confirm password match
-        if self.password_edit.text() != self.confirm_password_edit.text():
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Password Mismatch")
-            msg_box.setText("Passwords do not match.")
-            msg_box.exec()
-            return self.setup_create_account_page()
+        elif self.password_edit.text() != self.confirm_password_edit.text():
+            not_match_msg_box = QMessageBox()
+            not_match_msg_box.setIcon(QMessageBox.Warning)
+            not_match_msg_box.setWindowTitle("Password Mismatch")
+            not_match_msg_box.setText("Passwords do not match.")
+            not_match_msg_box.exec()
+            return 
 
         # Check if the email already exists in the database
-        if self.email_edit.text() in email_container:
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Email Already Exists")
-            msg_box.setText("This email is already registered.")
-            msg_box.exec()
-            return self.setup_create_account_page()
+        elif self.email_edit.text() in email_container:
+            email_exists_msg_box = QMessageBox()
+            email_exists_msg_box.setIcon(QMessageBox.Warning)
+            email_exists_msg_box.setWindowTitle("Email Already Exists")
+            email_exists_msg_box.setText("This email is already registered.")
+            email_exists_msg_box.exec()
+            return 
 
         # If all validations pass, store the account into the database
-        self.store_into_database()
+        self.register_fingerprint()
        
+    def register_fingerprint(self):
+        self.register_fingerprint_window.show()
+
+        self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
+        if self.skip_btn:
+            self.skip_btn.clicked.connect(self.store_into_database)
+
+        self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
+        if self.cancel_btn:
+            self.cancel_btn.clicked.connect(self.register_fingerprint_window.hide)
+            return
+
     def store_into_database(self):
+        self.register_fingerprint_window.hide()
+
         new_email = self.email_edit.text()
         new_password = self.password_edit.text()
         new_first_name = self.first_name_edit.text()
@@ -225,11 +258,25 @@ class MainApp:
         s_container.append(selected_s)
         birthdate_container.append(new_birthdate)
 
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Information)
-        msg_box.setWindowTitle("Account Created")
-        msg_box.setText("Account created successfully!")
-        msg_box.exec()
+        # Set role to employee
+        role_container.append("Employee")
+
+        account_created_msg_box = QMessageBox()
+        account_created_msg_box.setIcon(QMessageBox.Information)
+        account_created_msg_box.setWindowTitle("Account Created")
+        account_created_msg_box.setText("Account created successfully!")
+        account_created_msg_box.exec()
+
+        #Ensure that the create account edit credentials are empty
+
+        self.email_edit.setText("")
+        self.last_name_edit.setText("")
+        self.first_name_edit.setText("")
+        self.middle_init_edit.setText("")
+        self.suffix_combobox.setCurrentIndex(0)
+        self.password_edit.setText("")
+        self.confirm_password_edit.setText("")
+        self.birthdate_edit.setDate(datetime.date.today())
 
         self.create_account_window.hide()
         self.setup_login_page()
@@ -237,36 +284,48 @@ class MainApp:
     def load_dashboard(self):
         global email
         global password
+        global email_container
+        global password_container
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
 
-        if self.email == email and self.password == password:
-            self.role = "Supervisor"
-
-            # Map roles to UI files
-            dashboard_files = {
+        # Map roles to UI files
+        dashboard_files = {
                 "Supervisor": "dashboard_updated.ui",
                 "Manager": "dashboard_manager_new.ui",
                 "Employee": "dashboard_employee_new.ui"
             }
+        # For main supervisor role
+        if self.email == email and self.password == password:
+            self.role = "Supervisor"
 
             ui_file_path = dashboard_files.get(self.role)
 
             if ui_file_path:
                 self.open_dashboard(ui_file_path)
+
+        # For other roles
+        elif self.email in email_container and self.password in password_container:
+            index = email_container.index(self.email)
+            self.role = role_container[index]
+
+            ui_file_path = dashboard_files.get(self.role)
+
+            if ui_file_path:
+                self.open_dashboard(ui_file_path)
+        
         else:
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Login Failed")
-            msg_box.setText("Invalid email or password. Please try again.")
-            msg_box.exec()
+            login_failed_msg_box = QMessageBox()
+            login_failed_msg_box.setIcon(QMessageBox.Warning)
+            login_failed_msg_box.setWindowTitle("Login Failed")
+            login_failed_msg_box.setText("Invalid email or password. Please try again.")
+            login_failed_msg_box.exec()
 
     def open_dashboard(self, ui_file_path):
         global email
         global password
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
-        self.role = "Supervisor"
 
         ui_file = QFile(ui_file_path)
         if ui_file.open(QFile.ReadOnly):
@@ -387,11 +446,11 @@ class MainApp:
         if self.name != "Amiel Padasay":
             self.show_select_role()
         else:  
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle("Invalid Action")
-            msg_box.setText("You cannot change the role of this user.")
-            msg_box.exec()
+            no_change_msg_box = QMessageBox()
+            no_change_msg_box.setIcon(QMessageBox.Warning)
+            no_change_msg_box.setWindowTitle("Invalid Action")
+            no_change_msg_box.setText("You cannot change the role of this user.")
+            no_change_msg_box.exec()
             self.select_role_window.hide()
 
     def show_select_role(self):
@@ -428,17 +487,17 @@ class MainApp:
 
     def save_role_changes(self):
 
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Warning)
-        msg_box.setWindowTitle("Confirmation")
-        msg_box.setText("Are you sure you want to change the role?")
-        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg_box.setDefaultButton(QMessageBox.No)
-        msg_box.setEscapeButton(QMessageBox.No)
-        msg_box.setModal(True)
-        msg_box.setWindowModality(Qt.ApplicationModal)
+        change_role_msg_box = QMessageBox()
+        change_role_msg_box.setIcon(QMessageBox.Warning)
+        change_role_msg_box.setWindowTitle("Confirmation")
+        change_role_msg_box.setText("Are you sure you want to change the role?")
+        change_role_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        change_role_msg_box.setDefaultButton(QMessageBox.No)
+        change_role_msg_box.setEscapeButton(QMessageBox.No)
+        change_role_msg_box.setModal(True)
+        change_role_msg_box.setWindowModality(Qt.ApplicationModal)
         
-        result = msg_box.exec()
+        result = change_role_msg_box.exec()
             
         if result == QMessageBox.Yes:
             selected_row = self.user_table.currentRow()
@@ -461,10 +520,11 @@ class MainApp:
             # Update the role in the table
             if role_item:
                 role_item.setText(new_role)
-            self.select_role_window.hide()
-            msg_box.close()
+                self.select_role_window.hide() 
+                change_role_msg_box.close()
+
         elif result == QMessageBox.No:
-            msg_box.close()
+            change_role_msg_box.close()
 
     #Manager's Menu
     def setup_manager_dashboard(self):
@@ -552,6 +612,7 @@ class MainApp:
     
     def log_out(self):
         self.login_window.show()
+        self.log_in_stacked.setCurrentIndex(1)
         self.current_dashboard.hide()
 
     def run(self):
