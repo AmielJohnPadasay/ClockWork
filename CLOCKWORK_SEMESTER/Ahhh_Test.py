@@ -1,5 +1,5 @@
 import sys
-import mysql.connector
+import mysql.connector # Need to be created tomorrow
 import datetime
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit
@@ -8,8 +8,10 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
 from PySide6.QtWidgets import QMessageBox
 
-email = "a"
-password = "2"
+email = "a@gmail.com"
+password = "22222222"
+manager_email = "b@yahoo.com"
+manager_password = "33333333"
 
 #Temporary containers for user data
 # These will be used to store user data temporarily before inserting into the database
@@ -120,7 +122,7 @@ class MainApp:
         self.password_lineedit.textChanged.connect(lambda: None)
 
 
-    def setup_create_account_page(self): # Next function to be created
+    def setup_create_account_page(self):
         self.create_account_window.setWindowTitle("Create Account")
         self.create_account_window.show()
         self.login_window.hide()
@@ -180,7 +182,7 @@ class MainApp:
             return
 
         # Check if "@gmail.com" and "@yahoo.com" and is in the email field
-        elif "@gmail.com" and "@yahoo.com" not in self.email_edit.text():
+        elif "@gmail.com" not in self.email_edit.text() and "@yahoo.com" not in self.email_edit.text():
             invalid_email_msg_box = QMessageBox()
             invalid_email_msg_box.setIcon(QMessageBox.Warning)
             invalid_email_msg_box.setWindowTitle("Invalid Email")
@@ -284,6 +286,8 @@ class MainApp:
     def load_dashboard(self):
         global email
         global password
+        global manager_email
+        global manager_password
         global email_container
         global password_container
         self.email = self.email_lineedit.text()
@@ -292,12 +296,21 @@ class MainApp:
         # Map roles to UI files
         dashboard_files = {
                 "Supervisor": "dashboard_updated.ui",
-                "Manager": "dashboard_manager_new.ui",
+                "Manager": "dashboard_manager_updated.ui",
                 "Employee": "dashboard_employee_new.ui"
             }
         # For main supervisor role
         if self.email == email and self.password == password:
             self.role = "Supervisor"
+
+            ui_file_path = dashboard_files.get(self.role)
+
+            if ui_file_path:
+                self.open_dashboard(ui_file_path)
+
+        # For manager role (TBA)
+        if self.email == manager_email and self.password == manager_password:
+            self.role = "Manager"
 
             ui_file_path = dashboard_files.get(self.role)
 
@@ -335,7 +348,7 @@ class MainApp:
             ui_file.close()
             if self.email == email and self.password == password:
                 self.setup_supervisor_dashboard()
-            elif self.role == "Manager":
+            elif self.email == manager_email and self.password == manager_password:
                 self.setup_manager_dashboard()
             elif self.role == "Employee":
                 self.setup_employee_dashboard()
