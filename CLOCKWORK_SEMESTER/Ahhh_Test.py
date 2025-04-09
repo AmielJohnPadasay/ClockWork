@@ -2,7 +2,7 @@ import sys
 import mysql.connector # Need to be created tomorrow
 import datetime
 from mysql.connector import errorcode as err
-from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit
+from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
@@ -10,8 +10,23 @@ from PySide6.QtWidgets import QMessageBox
 
 email = "a@gmail.com"
 password = "22222222"
+first_name = "Amiel"
+last_name = "Padasay"
+middle_initial = "R."
+suffix = ""
+role = "Supervisor"
+birthdate = "2004-09-18"
+sex = "Male"
+
 manager_email = "b@yahoo.com"
 manager_password = "33333333"
+manager_first_name = "John"
+manager_last_name = "Doe"
+manager_middle_initial = "D."
+manager_suffix = ""
+manager_role = "Manager"
+manager_birthdate = "2005-09-18"
+manager_sex = "Male"
 
 #Temporary containers for user data
 # These will be used to store user data temporarily before inserting into the database
@@ -24,6 +39,25 @@ role_container = []
 s_container = []
 suffix_container = []
 birthdate_container = []
+
+email_container.append(email)
+email_container.append(manager_email)
+password_container.append(password)
+password_container.append(manager_password)
+first_name_container.append(first_name)
+first_name_container.append(manager_first_name)
+last_name_container.append(last_name)
+last_name_container.append(manager_last_name)
+middle_initial_container.append(middle_initial)
+middle_initial_container.append(manager_middle_initial)
+role_container.append(role)
+role_container.append(manager_role)
+s_container.append(sex)
+s_container.append(manager_sex)
+suffix_container.append(suffix)
+suffix_container.append(manager_suffix)
+birthdate_container.append(birthdate)
+birthdate_container.append(manager_birthdate)
 
 class MainApp:
     def __init__(self):
@@ -127,7 +161,7 @@ class MainApp:
         self.create_account_window.show()
         self.login_window.hide()
 
-
+        # Inputs for user credentials
         self.email_edit = self.create_account_window.findChild(QLineEdit, "email_edit")
         self.last_name_edit = self.create_account_window.findChild(QLineEdit, "last_name_edit")
         self.first_name_edit = self.create_account_window.findChild(QLineEdit, "first_name_edit")
@@ -158,9 +192,6 @@ class MainApp:
         self.password_edit.setEchoMode(QLineEdit.Password)
         self.confirm_password_edit = self.create_account_window.findChild(QLineEdit, "confirm_password_edit")
         self.confirm_password_edit.setEchoMode(QLineEdit.Password)
-
-        #Remove role combo box and directly set role to "Supervisor" #To be removed
-        self.role = "Supervisor"
 
         self.change_into_log_in_button = self.create_account_window.findChild(QWidget, "change_into_log_in_button")
         if self.change_into_log_in_button:
@@ -284,12 +315,16 @@ class MainApp:
         self.setup_login_page()
 
     def load_dashboard(self):
+        #To be removed
         global email
         global password
         global manager_email
         global manager_password
+
+
         global email_container
         global password_container
+        global role_container
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
 
@@ -299,34 +334,17 @@ class MainApp:
                 "Manager": "dashboard_manager_updated.ui",
                 "Employee": "dashboard_employee_new.ui"
             }
-        # For main supervisor role
-        if self.email == email and self.password == password:
-            self.role = "Supervisor"
-
-            ui_file_path = dashboard_files.get(self.role)
-
-            if ui_file_path:
-                self.open_dashboard(ui_file_path)
-
-        # For manager role (TBA)
-        if self.email == manager_email and self.password == manager_password:
-            self.role = "Manager"
-
-            ui_file_path = dashboard_files.get(self.role)
-
-            if ui_file_path:
-                self.open_dashboard(ui_file_path)
-
-        # For other roles
-        elif self.email in email_container and self.password in password_container:
+        # Password and email validation
+        if self.email in email_container:
             index = email_container.index(self.email)
+        if self.password == password_container[index]:
             self.role = role_container[index]
-
             ui_file_path = dashboard_files.get(self.role)
 
             if ui_file_path:
                 self.open_dashboard(ui_file_path)
-        
+            return
+   
         else:
             login_failed_msg_box = QMessageBox()
             login_failed_msg_box.setIcon(QMessageBox.Warning)
@@ -335,20 +353,28 @@ class MainApp:
             login_failed_msg_box.exec()
 
     def open_dashboard(self, ui_file_path):
+        #Global variables to be removed
         global email
         global password
+
+        global email_container
+        global password_container
+        global role_container
+
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
 
         ui_file = QFile(ui_file_path)
         if ui_file.open(QFile.ReadOnly):
+            index = email_container.index(self.email)
+            self.role = role_container[index]
             self.current_dashboard = self.loader.load(ui_file, None)  # Store the dashboard instance
             self.current_dashboard.show()
             self.login_window.hide()
             ui_file.close()
-            if self.email == email and self.password == password:
+            if self.role == "Supervisor":
                 self.setup_supervisor_dashboard()
-            elif self.email == manager_email and self.password == manager_password:
+            elif self.role == "Manager":
                 self.setup_manager_dashboard()
             elif self.role == "Employee":
                 self.setup_employee_dashboard()
@@ -358,21 +384,18 @@ class MainApp:
 
         self.user_table = self.current_dashboard.findChild(QTableWidget, "users_table")
         if self.user_table:
-            self.user_table.setRowCount(3)
+            self.user_table.setRowCount(4)
             self.user_table.setColumnCount(3)
-            self.user_table.setSelectionBehavior(QTableWidget.SelectRows)
-            self.user_table.setSelectionMode(QTableWidget.SingleSelection)
 
             self.user_table.setHorizontalHeaderLabels(["Name", "Email", "Role"])
             self.user_table.setVerticalHeaderLabels([])
 
-            self.user_table.setItem(0, 0, QTableWidgetItem("Amiel Padasay"))
-            self.user_table.setItem(0, 1, QTableWidgetItem("amiel.padasay004@gmail.com"))
-            self.user_table.setItem(0, 2, QTableWidgetItem("Supervisor"))
-
-            self.user_table.setItem(1, 0, QTableWidgetItem("John Doe"))
-            self.user_table.setItem(1, 1, QTableWidgetItem("johndoe@gmail.com"))
-            self.user_table.setItem(1, 2, QTableWidgetItem("Manager"))
+            # Populate the table with data from temporary containers
+            for i in range(len(email_container)):
+                self.user_table.insertRow(i)
+                self.user_table.setItem(i, 0, QTableWidgetItem(first_name_container[i] + " " + last_name_container[i]))
+                self.user_table.setItem(i, 1, QTableWidgetItem(email_container[i]))
+                self.user_table.setItem(i, 2, QTableWidgetItem(role_container[i]))
 
         self.log_out_button = self.current_dashboard.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
@@ -492,6 +515,7 @@ class MainApp:
 
         self.save_changes_button = self.select_role_window.findChild(QPushButton, "save_changes_btn")
         if self.save_changes_button:
+            # Connect the button to the save_role_changes method
             self.save_changes_button.clicked.connect(self.save_role_changes)
 
         self.cancel_button = self.select_role_window.findChild(QWidget, "cancel_btn")
@@ -499,6 +523,7 @@ class MainApp:
             self.cancel_button.clicked.connect(self.select_role_window.hide)
 
     def save_role_changes(self):
+        global role_container
 
         change_role_msg_box = QMessageBox()
         change_role_msg_box.setIcon(QMessageBox.Warning)
@@ -522,13 +547,15 @@ class MainApp:
                 name = name_item.text()
                 role = role_item.text()
 
-            # Get the selected radio button
+            # Connect to role_container to change role
             if self.supervisor_radio_btn.isChecked():
                 new_role = "Supervisor"
             elif self.manager_radio_btn.isChecked():
                 new_role = "Manager"
             elif self.employee_radio_btn.isChecked():
                 new_role = "Employee"
+
+            role_container[selected_row] = new_role
 
             # Update the role in the table
             if role_item:
@@ -581,8 +608,32 @@ class MainApp:
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
 
-    def show_assign_task(self):
+    def show_assign_task(self): # Next function to be created
+    
         self.assign_task_window.show()
+
+        # Inputs for assigning tasks
+        self.task_name_edit = self.assign_task_window.findChild(QLineEdit, "taskname_edit")
+        self.task_description_edit = self.assign_task_window.findChild(QLineEdit, "taskreq_edit")
+        self.search_bar_assign = self.assign_task_window.findChild(QLineEdit, "search_bar_assign")
+        self.assign_member_group_list = self.assign_task_window.findChild(QListWidget, "assign_member_group_list")
+        self.weblink_radio_btn = self.assign_task_window.findChild(QRadioButton, "weblink_radio")
+        self.file_radio_btn = self.assign_task_window.findChild(QRadioButton, "file_radio")
+        self.due_date_edit = self.assign_task_window.findChild(QDateEdit, "duedateEdit")
+        self.due_date_edit.setDisplayFormat("yyyy-MM-dd")
+        self.due_date_edit.setCalendarPopup(True)
+        self.due_date_edit.setDate(datetime.date.today())
+        self.due_time_edit = self.assign_task_window.findChild(QTimeEdit, "duetimeEdit")
+        self.due_time_edit.setDisplayFormat("HH:mm")
+        self.due_time_edit.setTime(datetime.time(0, 0))
+
+        self.ok_button = self.assign_task_window.findChild(QWidget, "ok_btn")
+        if self.ok_button:
+            self.ok_button.clicked.connect(self.assign_task)
+
+        self.cancel_button = self.assign_task_window.findChild(QWidget, "cancel_btn")
+        if self.cancel_button:
+            self.cancel_button.clicked.connect(self.assign_task_window.hide)       
 
     def setup_employee_dashboard(self):
         self.log_out_button = self.current_dashboard.findChild(QWidget, "log_out_btn")
