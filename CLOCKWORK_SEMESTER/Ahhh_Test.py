@@ -353,7 +353,6 @@ class MainApp:
 
             if ui_file_path:
                 self.open_dashboard(ui_file_path)
-            return
    
         else:
             login_failed_msg_box = QMessageBox()
@@ -417,11 +416,8 @@ class MainApp:
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
         if self.currenttask_table:
-            self.currenttask_table.setRowCount(4)
-            self.currenttask_table.setColumnCount(4)
-
-            self.currenttask_table.setHorizontalHeaderLabels(["Task", "Assigned To", "Due Date", "Status"])
-            self.currenttask_table.setVerticalHeaderLabels([])
+            self.currenttask_table.setColumnCount(6)
+            self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
         self.dashboard_btn = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn:
@@ -587,17 +583,17 @@ class MainApp:
         self.stacked_Manager.setCurrentIndex(0)
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
-        self.currenttask_table.insertRow(self.currenttask_table.rowCount())
+        #self.currenttask_table.insertRow(self.currenttask_table.rowCount())
         self.currenttask_table.setColumnCount(6)
         self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
         self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
-        self.pendingtask_table.insertRow(self.pendingtask_table.rowCount())
+        #self.pendingtask_table.insertRow(self.pendingtask_table.rowCount())
         self.pendingtask_table.setColumnCount(6)
         self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
         self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
-        self.completedtask_table.insertRow(self.completedtask_table.rowCount())
+        #self.completedtask_table.insertRow(self.completedtask_table.rowCount())
         self.completedtask_table.setColumnCount(6)
         self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
@@ -860,6 +856,8 @@ class MainApp:
         self.stacked_Employee = self.current_dashboard.findChild(QStackedWidget, "stacked_Employee")
 
         self.stacked_Employee.setCurrentIndex(0)
+
+        self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "calendartask_table")
 
         self.dashboard_btn_employee = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn_employee:
