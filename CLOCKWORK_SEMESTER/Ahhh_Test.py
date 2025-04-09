@@ -2,7 +2,8 @@ import sys
 import mysql.connector # Need to be created tomorrow
 import datetime
 from mysql.connector import errorcode as err
-from PySide6.QtWidgets import QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit
+from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, 
+                               QTimeEdit, QTextEdit)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
@@ -39,6 +40,15 @@ role_container = []
 s_container = []
 suffix_container = []
 birthdate_container = []
+
+task_name_container = []
+task_requirement_container = []
+task_description_container = []
+task_priority_level_container = []
+task_due_date_container = []
+task_due_time_container = []
+task_assigned_to_container = []
+task_status_container = []
 
 email_container.append(email)
 email_container.append(manager_email)
@@ -577,12 +587,19 @@ class MainApp:
         self.stacked_Manager.setCurrentIndex(0)
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
-        if self.currenttask_table:
-            self.currenttask_table.setRowCount(4)
-            self.currenttask_table.setColumnCount(4)
+        self.currenttask_table.insertRow(self.currenttask_table.rowCount())
+        self.currenttask_table.setColumnCount(6)
+        self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
-            # self.currenttask_table.setHorizontalHeaderLabels(["Task", "Assigned To", "Due Date", "Status"])
-            self.currenttask_table.setVerticalHeaderLabels([])
+        self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
+        self.pendingtask_table.insertRow(self.pendingtask_table.rowCount())
+        self.pendingtask_table.setColumnCount(6)
+        self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+        self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
+        self.completedtask_table.insertRow(self.completedtask_table.rowCount())
+        self.completedtask_table.setColumnCount(6)
+        self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
         self.dashboard_btn_manager = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn_manager:
@@ -609,16 +626,46 @@ class MainApp:
             self.log_out_button.clicked.connect(self.log_out)
 
     def show_assign_task(self): # Next function to be created
+        global email_container
+        global first_name_container
+        global last_name_container
     
         self.assign_task_window.show()
 
         # Inputs for assigning tasks
         self.task_name_edit = self.assign_task_window.findChild(QLineEdit, "taskname_edit")
-        self.task_description_edit = self.assign_task_window.findChild(QLineEdit, "taskreq_edit")
+        self.task_description_edit = self.assign_task_window.findChild(QTextEdit, "taskreq_edit")
+
+        self.prioritylevel_combobox = self.assign_task_window.findChild(QComboBox, "prioritylevel_combobox")
+        self.prioritylevel_combobox.setCurrentIndex(0)
+
         self.search_bar_assign = self.assign_task_window.findChild(QLineEdit, "search_bar_assign")
-        self.assign_member_group_list = self.assign_task_window.findChild(QListWidget, "assign_member_group_list")
-        self.weblink_radio_btn = self.assign_task_window.findChild(QRadioButton, "weblink_radio")
+
+        # Replace the list widget with a table widget
+        self.assign_member_group_table = self.assign_task_window.findChild(QTableWidget, "assign_member_group_list")
+        self.assign_member_group_table.setRowCount(len(email_container))
+        self.assign_member_group_table.setColumnCount(2)
+        self.assign_member_group_table.setHorizontalHeaderLabels(["", "Name"])
+
+        # Populate the table with data
+        for i in range(len(email_container)):
+            #Create the first column with checkboxes
+            checkbox_item = QTableWidgetItem()
+            checkbox_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            checkbox_item.setCheckState(Qt.Unchecked)
+            self.assign_member_group_table.setItem(i, 0, checkbox_item)
+            # Create the second column with names and emails
+            self.assign_member_group_table.setItem(i, 1, QTableWidgetItem(first_name_container[i] + " " + last_name_container[i]))
+            self.assign_member_group_table.setItem(i, 2, QTableWidgetItem(email_container[i]))
+
+        # Enable multi-row selection
+        self.assign_member_group_table.itemChanged.connect(self.handle_checkbox_change)
+
         self.file_radio_btn = self.assign_task_window.findChild(QRadioButton, "file_radio")
+        self.weblink_radio_btn = self.assign_task_window.findChild(QRadioButton, "weblink_radio")
+        self.file_radio_btn.setChecked(False)
+        self.weblink_radio_btn.setChecked(True)
+
         self.due_date_edit = self.assign_task_window.findChild(QDateEdit, "duedateEdit")
         self.due_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.due_date_edit.setCalendarPopup(True)
@@ -629,11 +676,181 @@ class MainApp:
 
         self.ok_button = self.assign_task_window.findChild(QWidget, "ok_btn")
         if self.ok_button:
-            self.ok_button.clicked.connect(self.assign_task)
+            self.ok_button.clicked.connect(self.confirm_task)
 
         self.cancel_button = self.assign_task_window.findChild(QWidget, "cancel_btn")
         if self.cancel_button:
-            self.cancel_button.clicked.connect(self.assign_task_window.hide)       
+            self.cancel_button.clicked.connect(self.assign_task_window.hide)
+
+    def handle_checkbox_change(self, item):
+        if item.column() == 0 and item.checkState() == Qt.Checked:
+            for col in range(self.assign_member_group_table.columnCount()):
+                self.assign_member_group_table.item(item.row(), col).setSelected(True)
+        elif item.column() == 0 and item.checkState() == Qt.Unchecked:
+            for col in range(self.assign_member_group_table.columnCount()):
+                self.assign_member_group_table.item(item.row(), col).setSelected(False)
+
+    def confirm_task(self):
+        # Get the task name and description
+        if not self.task_name_edit.text() or not self.task_description_edit.toPlainText():
+            empty_msg_box = QMessageBox()
+            empty_msg_box.setIcon(QMessageBox.Warning)
+            empty_msg_box.setWindowTitle("Empty Fields")
+            empty_msg_box.setText("Please fill in all fields.")
+            empty_msg_box.exec()
+            return
+        
+        # Confirm the selected rows from the table
+        selected_rows = self.assign_member_group_table.selectedItems()
+        if not selected_rows:
+            no_selection_msg_box = QMessageBox()
+            no_selection_msg_box.setIcon(QMessageBox.Warning)
+            no_selection_msg_box.setWindowTitle("No Selection")
+            no_selection_msg_box.setText("Please select at least one member.")
+            no_selection_msg_box.exec()
+            return
+        
+        # Check if due date is past the current date
+        due_date = self.due_date_edit.date()
+        due_time = self.due_time_edit.time()
+        due_datetime = datetime.datetime(due_date.year(), due_date.month(), due_date.day(), due_time.hour(), due_time.minute())
+        if due_datetime < datetime.datetime.now():
+            past_due_msg_box = QMessageBox()
+            past_due_msg_box.setIcon(QMessageBox.Warning)
+            past_due_msg_box.setWindowTitle("Invalid Due Date")
+            past_due_msg_box.setText("Due date cannot be in the past.")
+            past_due_msg_box.exec()
+            return
+
+        # Get the selected members' names
+        selected_names = set()
+        for row in range(self.assign_member_group_table.rowCount()):
+            checkbox_item = self.assign_member_group_table.item(row, 0)
+            if checkbox_item and checkbox_item.checkState() == Qt.Checked:
+                name_item = self.assign_member_group_table.item(row, 1)
+            if name_item:
+                selected_names.add(name_item.text())
+
+        # Do something with the selected emails (e.g., assign tasks)
+        print("Selected Names: ", selected_names)
+
+        # If all validations are completed
+        self.finalize_create_task()
+
+    def finalize_create_task(self):
+        global task_name_container
+        global task_requirement_container
+        global task_description_container
+        global task_priority_level_container
+        global task_due_date_container
+        global task_due_time_container
+        global task_assigned_to_container
+        global task_status_container
+
+        #Confirmation message box
+        confirm_msg_box = QMessageBox()
+        confirm_msg_box.setIcon(QMessageBox.Warning)
+        confirm_msg_box.setWindowTitle("Confirmation")
+        confirm_msg_box.setText("Are you sure you want to assign this task?")
+        confirm_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        confirm_msg_box.setDefaultButton(QMessageBox.No)
+        confirm_msg_box.setEscapeButton(QMessageBox.No)
+        confirm_msg_box.setModal(True)
+        confirm_msg_box.setWindowModality(Qt.ApplicationModal)
+
+        task_result = confirm_msg_box.exec()
+        if task_result == QMessageBox.Yes:
+            new_task_name = self.task_name_edit.text()
+            new_task_description = self.task_description_edit.toPlainText()
+            new_task_requirement = ""
+            new_task_priority_level = self.prioritylevel_combobox.currentText()
+            new_task_due_date = self.due_date_edit.text()
+            new_task_due_time = self.due_time_edit.text()
+            new_task_assigned_to = set()
+            new_task_status = "Pending"
+
+            # Connect to the currenttask_table and pendingtask_table to add the task
+            self.currenttask_table.insertRow(self.currenttask_table.rowCount())
+            self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+            self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 0, QTableWidgetItem(new_task_name))
+
+            if self.file_radio_btn.isChecked():
+                new_task_requirement = "File"
+                self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 1, QTableWidgetItem(new_task_requirement))
+            elif self.weblink_radio_btn.isChecked():
+                new_task_requirement = "Web Link"
+                self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 1, QTableWidgetItem(new_task_requirement))
+
+            self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 2, QTableWidgetItem(new_task_priority_level))
+            self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 3, QTableWidgetItem(new_task_status))
+            # Collect the names of the selected members
+            for row in range(self.assign_member_group_table.rowCount()):
+                checkbox_item = self.assign_member_group_table.item(row, 0)
+                if checkbox_item and checkbox_item.checkState() == Qt.Checked:
+                    name_item = self.assign_member_group_table.item(row, 1)
+                    if name_item:
+                        new_task_assigned_to.add(name_item.text())
+
+            # Update the table with the assigned names
+            self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 4, QTableWidgetItem(", ".join(new_task_assigned_to)))
+            self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 5, QTableWidgetItem(new_task_due_date + " " + new_task_due_time))
+
+            # Same for pendingtask_table
+            self.pendingtask_table.insertRow(self.pendingtask_table.rowCount())
+            self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+            self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 0, QTableWidgetItem(new_task_name))
+
+            if self.file_radio_btn.isChecked():
+                new_task_requirement = "File"
+                self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 1, QTableWidgetItem(new_task_requirement))
+            elif self.weblink_radio_btn.isChecked():
+                new_task_requirement = "Web Link"
+                self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 1, QTableWidgetItem(new_task_requirement))
+
+            self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 2, QTableWidgetItem(new_task_priority_level))
+            self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 3, QTableWidgetItem(new_task_status))
+
+            # Collect the names of the selected members
+            for row in range(self.assign_member_group_table.rowCount()):
+                checkbox_item = self.assign_member_group_table.item(row, 0)
+                if checkbox_item and checkbox_item.checkState() == Qt.Checked:
+                    name_item = self.assign_member_group_table.item(row, 1)
+                    if name_item:
+                        new_task_assigned_to.add(name_item.text())
+
+            self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 4, QTableWidgetItem(", ".join(new_task_assigned_to)))
+            self.pendingtask_table.setItem(self.pendingtask_table.rowCount() - 1, 5, QTableWidgetItem(new_task_due_date + " " + new_task_due_time))
+            
+            # Clear the input fields
+            self.task_name_edit.setText("")
+            self.task_description_edit.setPlainText("")
+            self.due_date_edit.setDate(datetime.date.today())
+            self.due_time_edit.setTime(datetime.datetime.now().time())
+            self.prioritylevel_combobox.setCurrentIndex(0)
+            self.file_radio_btn.setChecked(False)
+            self.weblink_radio_btn.setChecked(True)
+            self.search_bar_assign.setText("")
+
+            # Append data to temporary containers
+            task_name_container.append(new_task_name)
+            task_requirement_container.append(new_task_requirement)
+            task_description_container.append(new_task_description)
+            task_priority_level_container.append(new_task_priority_level)
+            task_due_date_container.append(new_task_due_date)
+            task_due_time_container.append(new_task_due_time)
+            task_assigned_to_container.append(new_task_assigned_to)
+            task_status_container.append(new_task_status)
+
+            # Close the assign task window
+            self.assign_task_window.hide()
+            confirm_msg_box.close()
+
+        elif task_result == QMessageBox.No:
+            confirm_msg_box.close()
+            self.show_assign_task()
+            return
 
     def setup_employee_dashboard(self):
         self.log_out_button = self.current_dashboard.findChild(QWidget, "log_out_btn")

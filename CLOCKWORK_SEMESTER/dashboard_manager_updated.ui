@@ -201,6 +201,9 @@
              <property name="horizontalScrollMode">
               <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
              </property>
+             <property name="rowCount">
+              <number>0</number>
+             </property>
              <attribute name="horizontalHeaderDefaultSectionSize">
               <number>180</number>
              </attribute>
@@ -210,11 +213,6 @@
              <attribute name="verticalHeaderDefaultSectionSize">
               <number>50</number>
              </attribute>
-             <row/>
-             <row/>
-             <row/>
-             <row/>
-             <row/>
              <column>
               <property name="text">
                <string>Task</string>
@@ -237,7 +235,7 @@
              </column>
              <column>
               <property name="text">
-               <string>Due Date</string>
+               <string>Due Date and Time</string>
               </property>
              </column>
             </widget>
@@ -385,6 +383,9 @@
                  <property name="horizontalScrollMode">
                   <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
                  </property>
+                 <property name="rowCount">
+                  <number>0</number>
+                 </property>
                  <attribute name="horizontalHeaderCascadingSectionResizes">
                   <bool>true</bool>
                  </attribute>
@@ -397,11 +398,6 @@
                  <attribute name="verticalHeaderDefaultSectionSize">
                   <number>50</number>
                  </attribute>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
                  <column>
                   <property name="text">
                    <string>Tasks</string>
@@ -424,7 +420,7 @@
                  </column>
                  <column>
                   <property name="text">
-                   <string>Due Date</string>
+                   <string>Due Date and Time</string>
                   </property>
                  </column>
                 </widget>
@@ -441,6 +437,9 @@
                  <property name="horizontalScrollMode">
                   <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
                  </property>
+                 <property name="rowCount">
+                  <number>0</number>
+                 </property>
                  <attribute name="horizontalHeaderCascadingSectionResizes">
                   <bool>true</bool>
                  </attribute>
@@ -453,11 +452,6 @@
                  <attribute name="verticalHeaderDefaultSectionSize">
                   <number>50</number>
                  </attribute>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
-                 <row/>
                  <column>
                   <property name="text">
                    <string>Tasks</string>
@@ -480,7 +474,7 @@
                  </column>
                  <column>
                   <property name="text">
-                   <string>Due Date</string>
+                   <string>Due Date and Time</string>
                   </property>
                  </column>
                 </widget>
@@ -555,7 +549,6 @@
   <tabstop>log_out_btn</tabstop>
   <tabstop>profile_button</tabstop>
   <tabstop>Task_Calendar_2</tabstop>
-  <tabstop>currenttask_table</tabstop>
   <tabstop>search_bar_tasks</tabstop>
   <tabstop>search_btn</tabstop>
   <tabstop>task_tab</tabstop>
