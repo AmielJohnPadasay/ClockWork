@@ -2,8 +2,8 @@ import sys
 import mysql.connector # Need to be created tomorrow
 import datetime
 from mysql.connector import errorcode as err
-from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, 
-                               QTimeEdit, QTextEdit)
+from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, 
+                               QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit, QTextEdit)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
@@ -347,6 +347,7 @@ class MainApp:
         # Password and email validation
         if self.email in email_container:
             index = email_container.index(self.email)
+
         if self.password == password_container[index]:
             self.role = role_container[index]
             ui_file_path = dashboard_files.get(self.role)
@@ -418,6 +419,35 @@ class MainApp:
         if self.currenttask_table:
             self.currenttask_table.setColumnCount(6)
             self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+            self.currenttask_table.setVerticalHeaderLabels([])
+
+        #Connect the tasks' temp storage
+        for i in range(len(task_name_container)):
+            self.currenttask_table.insertRow(i)
+            self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
+            self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
+            self.currenttask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
+            self.currenttask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
+            self.currenttask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
+            self.currenttask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+
+        self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
+        if self.pendingtask_table:
+            self.pendingtask_table.setColumnCount(6)
+            self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+            self.pendingtask_table.setVerticalHeaderLabels([])
+
+        #Connect the tasks' temp storage
+        for i in range(len(task_name_container)):
+            self.pendingtask_table.insertRow(i)
+            self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
+            self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
+            self.pendingtask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
+            self.pendingtask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
+            self.pendingtask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
+            self.pendingtask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+
+        self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtask_table")    
 
         self.dashboard_btn = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn:
@@ -530,6 +560,9 @@ class MainApp:
 
     def save_role_changes(self):
         global role_container
+        global first_name_container
+        global last_name_container
+        global email_container
 
         change_role_msg_box = QMessageBox()
         change_role_msg_box.setIcon(QMessageBox.Warning)
@@ -540,7 +573,9 @@ class MainApp:
         change_role_msg_box.setEscapeButton(QMessageBox.No)
         change_role_msg_box.setModal(True)
         change_role_msg_box.setWindowModality(Qt.ApplicationModal)
-        
+
+        # Overwrite change in role container according to its index
+
         result = change_role_msg_box.exec()
             
         if result == QMessageBox.Yes:
@@ -560,7 +595,6 @@ class MainApp:
                 new_role = "Manager"
             elif self.employee_radio_btn.isChecked():
                 new_role = "Employee"
-
             role_container[selected_row] = new_role
 
             # Update the role in the table
@@ -571,6 +605,7 @@ class MainApp:
 
         elif result == QMessageBox.No:
             change_role_msg_box.close()
+            self.show_select_role()
 
     #Manager's Menu
     def setup_manager_dashboard(self):
@@ -583,17 +618,14 @@ class MainApp:
         self.stacked_Manager.setCurrentIndex(0)
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
-        #self.currenttask_table.insertRow(self.currenttask_table.rowCount())
         self.currenttask_table.setColumnCount(6)
         self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
         self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
-        #self.pendingtask_table.insertRow(self.pendingtask_table.rowCount())
         self.pendingtask_table.setColumnCount(6)
         self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
         self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
-        #self.completedtask_table.insertRow(self.completedtask_table.rowCount())
         self.completedtask_table.setColumnCount(6)
         self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
@@ -858,6 +890,21 @@ class MainApp:
         self.stacked_Employee.setCurrentIndex(0)
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "calendartask_table")
+        if self.currenttask_table:
+            self.currenttask_table.setColumnCount(6)
+            self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+            self.currenttask_table.setVerticalHeaderLabels([])
+
+        #Connect the tasks' temp storage
+        for i in range(len(task_name_container)):
+            self.currenttask_table.insertRow(i)
+            self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
+            self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
+            self.currenttask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
+            self.currenttask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
+            self.currenttask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
+            self.currenttask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+
 
         self.dashboard_btn_employee = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn_employee:

@@ -337,7 +337,7 @@
               </font>
              </property>
              <property name="text">
-              <string>ConfirmationTextLabel</string>
+              <string/>
              </property>
              <property name="alignment">
               <set>Qt::AlignmentFlag::AlignCenter</set>
