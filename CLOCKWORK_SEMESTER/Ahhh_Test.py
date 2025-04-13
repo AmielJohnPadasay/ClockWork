@@ -106,6 +106,9 @@ class MainApp:
         
         self.submit_task_window = self.loader.load("submit_task.ui", None)
         self.submit_task_window.setWindowModality(Qt.ApplicationModal)
+
+        self.submit_file_task_window = self.loader.load("submit_files_task.ui", None)
+        self.submit_file_task_window.setWindowModality(Qt.ApplicationModal)
         
         self.validate_task_window = self.loader.load("validate_task.ui", None)
         self.validate_task_window.setWindowModality(Qt.ApplicationModal)
@@ -361,6 +364,7 @@ class MainApp:
             login_failed_msg_box.setWindowTitle("Login Failed")
             login_failed_msg_box.setText("Invalid email or password. Please try again.")
             login_failed_msg_box.exec()
+            return
 
     def open_dashboard(self, ui_file_path):
         #Global variables to be removed
@@ -926,8 +930,50 @@ class MainApp:
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
 
-    def show_submit_task(self):
-        self.submit_task_window.show()
+    def show_submit_task(self): #Next function to be created  
+        selected_row = self.currenttask_table.currentRow()
+        if selected_row != -1:  # Ensure a row is selected
+            if self.currenttask_table.item(selected_row, 1) == "Web Link":
+                self.submit_task()
+            elif self.currenttask_table.item(selected_row, 1) == "File":
+                self.submit_file_task()
+        else:
+            no_selection_msg_box = QMessageBox()
+            no_selection_msg_box.setIcon(QMessageBox.Warning)
+            no_selection_msg_box.setWindowTitle("No Selection")
+            no_selection_msg_box.setText("Please select a task to submit.")
+            no_selection_msg_box.exec()
+            return
+    
+    def submit_task(self):
+        # Get the task name and description
+        if not self.task_name_edit.text() or not self.task_description_edit.toPlainText():
+            empty_msg_box = QMessageBox()
+            empty_msg_box.setIcon(QMessageBox.Warning)
+            empty_msg_box.setWindowTitle("Empty Fields")
+            empty_msg_box.setText("Please fill in all fields.")
+            empty_msg_box.exec()
+            return
+        
+    def submit_file_task(self):
+        # Get the task name and description
+        if not self.task_name_edit.text() or not self.task_description_edit.toPlainText():
+            empty_msg_box = QMessageBox()
+            empty_msg_box.setIcon(QMessageBox.Warning)
+            empty_msg_box.setWindowTitle("Empty Fields")
+            empty_msg_box.setText("Please fill in all fields.")
+            empty_msg_box.exec()
+            return
+
+        # Confirm the selected rows from the table
+        selected_rows = self.currenttask_table.selectedItems()
+        if not selected_rows:
+            no_selection_msg_box = QMessageBox()
+            no_selection_msg_box.setIcon(QMessageBox.Warning)
+            no_selection_msg_box.setWindowTitle("No Selection")
+            no_selection_msg_box.setText("Please select at least one member.")
+            no_selection_msg_box.exec()
+            return
 
     def show_join_group(self):
         self.join_group_window.show()
