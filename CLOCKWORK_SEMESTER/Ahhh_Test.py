@@ -242,6 +242,15 @@ class MainApp:
             less_8_msg_box.setText("Password must be at least 8 characters long.")
             less_8_msg_box.exec()
             return
+        
+        # Check if others edit has text
+        elif self.others_radio_btn.isChecked() and not self.others_edit.text():
+            empty_others_msg_box = QMessageBox()
+            empty_others_msg_box.setIcon(QMessageBox.Warning)
+            empty_others_msg_box.setWindowTitle("Empty Others Field")
+            empty_others_msg_box.setText("Please fill in the Others field.")
+            empty_others_msg_box.exec()
+            return
 
         # Check if the password and confirm password match
         elif self.password_edit.text() != self.confirm_password_edit.text():
@@ -259,7 +268,7 @@ class MainApp:
             email_exists_msg_box.setWindowTitle("Email Already Exists")
             email_exists_msg_box.setText("This email is already registered.")
             email_exists_msg_box.exec()
-            return 
+            return
 
         # If all validations pass, store the account into the database
         self.register_fingerprint()
@@ -307,12 +316,6 @@ class MainApp:
         # Set role to employee
         role_container.append("Employee")
 
-        account_created_msg_box = QMessageBox()
-        account_created_msg_box.setIcon(QMessageBox.Information)
-        account_created_msg_box.setWindowTitle("Account Created")
-        account_created_msg_box.setText("Account created successfully!")
-        account_created_msg_box.exec()
-
         #Ensure that the create account edit credentials are empty
 
         self.email_edit.setText("")
@@ -323,6 +326,12 @@ class MainApp:
         self.password_edit.setText("")
         self.confirm_password_edit.setText("")
         self.birthdate_edit.setDate(datetime.date.today())
+
+        account_created_msg_box = QMessageBox()
+        account_created_msg_box.setIcon(QMessageBox.Information)
+        account_created_msg_box.setWindowTitle("Account Created")
+        account_created_msg_box.setText("Account created successfully!")
+        account_created_msg_box.exec()
 
         self.create_account_window.hide()
         self.setup_login_page()
@@ -489,14 +498,152 @@ class MainApp:
         self.validate_task_window.show()
 
     def show_profile(self):
+        global first_name_container
+        global last_name_container
+        global email_container
+        global role_container
+        global s_container
+        global birthdate_container
+        global suffix_container
+        global middle_initial_container
+
         self.profile_window.show()
 
         self.edit_profile_btn = self.profile_window.findChild(QWidget, "edit_profile_btn")
         if self.edit_profile_btn:
             self.edit_profile_btn.clicked.connect(self.show_edit_profile)
 
+        # Make the labels have their name, role, email, sex and birthdate according to their index
+        self.email = self.email_lineedit.text()
+        self.password = self.password_lineedit.text()
+        if self.email in email_container and self.password in password_container:    
+            index = email_container.index(self.email)
+
+            self.name_label = self.profile_window.findChild(QLabel, "name_label")
+            if self.name_label:
+                self.name_label.setText((f"Name: {first_name_container[index]} {last_name_container[index]}"))
+
+            self.role_label = self.profile_window.findChild(QLabel, "role_label")
+            if self.role_label:
+                self.role_label.setText((f"Role: {role_container[index]}"))
+
+            self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
+            if self.age_and_sex_label:
+                self.age_and_sex_label.setText((f"Age: {self.calculate_age(birthdate_container[index])} years old\n\nSex: {s_container[index]}"))
+            
+            self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
+            if self.email_label:
+                self.email_label.setText((f"{email_container[index]}"))
+
+            self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
+            if self.birthdate_label:
+                self.birthdate_label.setText((f"{birthdate_container[index]}"))
+
+
+    def calculate_age(self, birthdate):
+        birthdate = datetime.datetime.strptime(birthdate, "%Y-%m-%d").date()
+        today = datetime.date.today()
+        age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
+        return age    
+
+
     def show_edit_profile(self):
+        global first_name_container
+        global last_name_container
+        global email_container
+        global role_container
+        global s_container
+        global birthdate_container
+        global suffix_container
+        global middle_initial_container
+
         self.edit_profile_window.show()
+
+        #Connection of widgets
+        self.edit_first_name = self.edit_profile_window.findChild(QLineEdit, "new_first_name_edit")
+        self.edit_last_name = self.edit_profile_window.findChild(QLineEdit, "new_last_name_edit")
+        self.edit_middle_initial = self.edit_profile_window.findChild(QLineEdit, "new_middle_initial_edit")
+        self.edit_suffix = self.edit_profile_window.findChild(QComboBox, "suffix_combobox")
+        self.edit_suffix.setCurrentIndex(0)
+        self.new_male_radio = self.edit_profile_window.findChild(QRadioButton, "new_male_radio")
+        self.new_female_radio = self.edit_profile_window.findChild(QRadioButton, "new_female_radio")
+        self.new_others_radio = self.edit_profile_window.findChild(QRadioButton, "new_others_radio")
+        
+        self.new_others_edit = self.edit_profile_window.findChild(QLineEdit, "new_others_edit")
+        self.new_others_edit.setPlaceholderText("Please specify")
+        self.new_others_edit.setEnabled(False)
+        self.new_others_radio.toggled.connect(lambda: self.new_others_edit.setEnabled(self.new_others_radio.isChecked()))
+
+        self.edit_birthdate = self.edit_profile_window.findChild(QDateEdit, "new_birthdate_edit")
+        self.edit_birthdate.setDisplayFormat("yyyy-MM-dd")
+        self.edit_birthdate.setCalendarPopup(True)
+
+        self.email = self.email_lineedit.text()
+
+        if self.email in email_container:
+            index = email_container.index(self.email)
+            self.edit_first_name.setText(first_name_container[index])
+            self.edit_last_name.setText(last_name_container[index])
+            self.edit_middle_initial.setText(middle_initial_container[index])
+            self.edit_suffix.setCurrentText(suffix_container[index])
+            self.edit_birthdate.setDate(datetime.datetime.strptime(birthdate_container[index], "%Y-%m-%d").date())
+
+            self.sex = s_container[index]
+            if self.sex == "Male":
+                self.new_male_radio.setChecked(True)
+                self.new_female_radio.setChecked(False)
+                self.new_others_radio.setChecked(False)
+            elif self.sex == "Female":
+                self.new_male_radio.setChecked(False)
+                self.new_female_radio.setChecked(True)
+                self.new_others_radio.setChecked(False)
+            else:
+                self.new_others_radio.setChecked(True)
+                self.new_others_edit.setText(s_container[index])
+
+        self.save_changes_button = self.edit_profile_window.findChild(QPushButton, "save_changes_btn")
+        self.cancel_btn = self.edit_profile_window.findChild(QPushButton, "new_cancel_btn")
+        
+        if self.save_changes_button:
+            save_change_msg_box = QMessageBox()
+            save_change_msg_box.setIcon(QMessageBox.Warning)
+            save_change_msg_box.setWindowTitle("Confirmation")
+            save_change_msg_box.setText("Are you sure you want to edit your profile?")
+            save_change_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            save_change_msg_box.setDefaultButton(QMessageBox.No)
+            save_change_msg_box.setEscapeButton(QMessageBox.No)
+            save_change_msg_box.setModal(True)
+            save_change_msg_box.setWindowModality(Qt.ApplicationModal)
+
+        result = save_change_msg_box.exec()
+            
+        if result == QMessageBox.Yes: # To be continued
+            selected_row = self.user_table.currentRow()
+            if selected_row != -1:  # Ensure a row is selected
+                name_item = self.user_table.item(selected_row, 0)
+                role_item = self.user_table.item(selected_row, 2)
+
+            if name_item and role_item:
+                name = name_item.text()
+                role = role_item.text()
+
+            # Connect to role_container to change role
+            if self.supervisor_radio_btn.isChecked():
+                new_role = "Supervisor"
+            elif self.manager_radio_btn.isChecked():
+                new_role = "Manager"
+            elif self.employee_radio_btn.isChecked():
+                new_role = "Employee"
+            role_container[selected_row] = new_role
+
+            # Update the role in the table
+            if role_item:
+                role_item.setText(new_role)
+                self.edit_profile_window.hide() 
+
+        elif result == QMessageBox.No:
+            save_change_msg_box.close()
+            self.show_select_role()
 
     def show_select_role_with_data(self):
         selected_row = self.user_table.currentRow()
@@ -760,7 +907,7 @@ class MainApp:
             checkbox_item = self.assign_member_group_table.item(row, 0)
             if checkbox_item and checkbox_item.checkState() == Qt.Checked:
                 name_item = self.assign_member_group_table.item(row, 1)
-            if name_item:
+            if name_item and name_item.text():
                 selected_names.add(name_item.text())
 
         # Do something with the selected emails (e.g., assign tasks)
