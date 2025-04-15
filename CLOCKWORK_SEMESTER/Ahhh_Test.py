@@ -565,6 +565,7 @@ class MainApp:
         self.edit_middle_initial = self.edit_profile_window.findChild(QLineEdit, "new_middle_initial_edit")
         self.edit_suffix = self.edit_profile_window.findChild(QComboBox, "suffix_combobox")
         self.edit_suffix.setCurrentIndex(0)
+
         self.new_male_radio = self.edit_profile_window.findChild(QRadioButton, "new_male_radio")
         self.new_female_radio = self.edit_profile_window.findChild(QRadioButton, "new_female_radio")
         self.new_others_radio = self.edit_profile_window.findChild(QRadioButton, "new_others_radio")
@@ -572,7 +573,13 @@ class MainApp:
         self.new_others_edit = self.edit_profile_window.findChild(QLineEdit, "new_others_edit")
         self.new_others_edit.setPlaceholderText("Please specify")
         self.new_others_edit.setEnabled(False)
-        self.new_others_radio.toggled.connect(lambda: self.new_others_edit.setEnabled(self.new_others_radio.isChecked()))
+
+        if self.new_others_radio:
+            self.new_others_radio.toggled.connect(lambda: self.new_others_edit.setEnabled(self.new_others_radio.isChecked()))
+        if self.new_male_radio:
+            self.new_male_radio.toggled.connect(lambda: self.new_others_edit.setEnabled(False))
+        if self.new_female_radio:
+            self.new_female_radio.toggled.connect(lambda: self.new_others_edit.setEnabled(False))
 
         self.edit_birthdate = self.edit_profile_window.findChild(QDateEdit, "new_birthdate_edit")
         self.edit_birthdate.setDisplayFormat("yyyy-MM-dd")
@@ -588,62 +595,79 @@ class MainApp:
             self.edit_suffix.setCurrentText(suffix_container[index])
             self.edit_birthdate.setDate(datetime.datetime.strptime(birthdate_container[index], "%Y-%m-%d").date())
 
-            self.sex = s_container[index]
-            if self.sex == "Male":
+            self.sex = s_container[index].strip().lower()
+            if self.sex == "male":
                 self.new_male_radio.setChecked(True)
                 self.new_female_radio.setChecked(False)
-                self.new_others_radio.setChecked(False)
-            elif self.sex == "Female":
+                if self.new_others_radio:
+                    self.new_others_radio.setChecked(False)
+                    self.new_others_edit.clear()
+
+            elif self.sex == "female":
                 self.new_male_radio.setChecked(False)
                 self.new_female_radio.setChecked(True)
-                self.new_others_radio.setChecked(False)
-            else:
-                self.new_others_radio.setChecked(True)
-                self.new_others_edit.setText(s_container[index])
+                if self.new_others_radio:
+                    self.new_others_radio.setChecked(False)
+                    self.new_others_edit.clear()
+
+            elif self.sex:  # Handle non-empty, non-standard values
+                if self.new_others_radio:
+                    self.new_others_radio.setChecked(True)
+                    self.new_others_edit.setText(s_container[index])
 
         self.save_changes_button = self.edit_profile_window.findChild(QPushButton, "save_changes_btn")
         self.cancel_btn = self.edit_profile_window.findChild(QPushButton, "new_cancel_btn")
         
         if self.save_changes_button:
-            save_change_msg_box = QMessageBox()
-            save_change_msg_box.setIcon(QMessageBox.Warning)
-            save_change_msg_box.setWindowTitle("Confirmation")
-            save_change_msg_box.setText("Are you sure you want to edit your profile?")
-            save_change_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-            save_change_msg_box.setDefaultButton(QMessageBox.No)
-            save_change_msg_box.setEscapeButton(QMessageBox.No)
-            save_change_msg_box.setModal(True)
-            save_change_msg_box.setWindowModality(Qt.ApplicationModal)
+            self.save_changes_button.clicked.connect(self.save_changes_with_profile)
+
+        if self.cancel_btn:
+            self.cancel_btn.clicked.connect(self.edit_profile_window.close)
+            self.show_profile()
+
+    def save_changes_with_profile(self):
+        save_change_msg_box = QMessageBox()
+        save_change_msg_box.setIcon(QMessageBox.Warning)
+        save_change_msg_box.setWindowTitle("Confirmation")
+        save_change_msg_box.setText("Are you sure you want to edit your profile?")
+        save_change_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        save_change_msg_box.setDefaultButton(QMessageBox.No)
+        save_change_msg_box.setEscapeButton(QMessageBox.No)
+        save_change_msg_box.setModal(True)
+        save_change_msg_box.setWindowModality(Qt.ApplicationModal)
 
         result = save_change_msg_box.exec()
             
         if result == QMessageBox.Yes: # To be continued
-            selected_row = self.user_table.currentRow()
-            if selected_row != -1:  # Ensure a row is selected
-                name_item = self.user_table.item(selected_row, 0)
-                role_item = self.user_table.item(selected_row, 2)
+            index = email_container.index(self.email)
+            new_first_name = self.edit_first_name.text()
+            new_last_name = self.edit_last_name.text()
+            new_middle_initial = self.edit_middle_initial.text()
+            new_suffix = self.edit_suffix.currentText()
+            new_birthdate = self.edit_birthdate.text()
 
-            if name_item and role_item:
-                name = name_item.text()
-                role = role_item.text()
+            first_name_container[index] = new_first_name
+            last_name_container[index] = new_last_name
+            middle_initial_container[index] = new_middle_initial
+            suffix_container[index] = new_suffix
+            birthdate_container[index] = new_birthdate
 
-            # Connect to role_container to change role
-            if self.supervisor_radio_btn.isChecked():
-                new_role = "Supervisor"
-            elif self.manager_radio_btn.isChecked():
-                new_role = "Manager"
-            elif self.employee_radio_btn.isChecked():
-                new_role = "Employee"
-            role_container[selected_row] = new_role
+            if self.new_male_radio.isChecked():
+                new_s = "Male"
+            elif self.new_female_radio.isChecked():
+                new_s = "Female"
+            elif self.new_others_radio.isChecked():
+                if self.new_others_edit:
+                    new_s = self.new_others_edit.text()
+            s_container[index] = new_s
 
-            # Update the role in the table
-            if role_item:
-                role_item.setText(new_role)
-                self.edit_profile_window.hide() 
+            self.edit_profile_window.close()
+            self.show_profile()
+            return
 
         elif result == QMessageBox.No:
             save_change_msg_box.close()
-            self.show_select_role()
+            self.show_edit_profile()
 
     def show_select_role_with_data(self):
         selected_row = self.user_table.currentRow()
@@ -907,8 +931,10 @@ class MainApp:
             checkbox_item = self.assign_member_group_table.item(row, 0)
             if checkbox_item and checkbox_item.checkState() == Qt.Checked:
                 name_item = self.assign_member_group_table.item(row, 1)
-            if name_item and name_item.text():
-                selected_names.add(name_item.text())
+                if name_item is not None:
+                    name_text = name_item.text()
+                    if name_text:
+                        selected_names.add(name_text)
 
         # Do something with the selected emails (e.g., assign tasks)
         print("Selected Names: ", selected_names)
