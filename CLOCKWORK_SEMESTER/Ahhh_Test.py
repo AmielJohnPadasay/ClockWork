@@ -1,9 +1,10 @@
 import sys
-import mysql.connector # Need to be created tomorrow
+import mysql.connector # Need to be created tomorrow why not NOW!!!?
+import pymongo
 import datetime
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, 
-                               QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit, QTextEdit)
+                               QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit, QTextEdit, QTextBrowser)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt
@@ -1106,9 +1107,10 @@ class MainApp:
     def show_submit_task(self): #Next function to be created  
         selected_row = self.currenttask_table.currentRow()
         if selected_row != -1:  # Ensure a row is selected
-            if self.currenttask_table.item(selected_row, 1) == "Web Link":
+            item = self.currenttask_table.item(selected_row, 1)
+            if item and item.text() == "Web Link":
                 self.submit_task()
-            elif self.currenttask_table.item(selected_row, 1) == "File":
+            elif item and item.text() == "File":
                 self.submit_file_task()
         else:
             no_selection_msg_box = QMessageBox()
@@ -1119,16 +1121,60 @@ class MainApp:
             return
     
     def submit_task(self):
-        # Get the task name and description
-        if not self.task_name_edit.text() or not self.task_description_edit.toPlainText():
-            empty_msg_box = QMessageBox()
-            empty_msg_box.setIcon(QMessageBox.Warning)
-            empty_msg_box.setWindowTitle("Empty Fields")
-            empty_msg_box.setText("Please fill in all fields.")
-            empty_msg_box.exec()
-            return
-        
+        self.submit_task_window.show()
+
+        selected_row = self.currenttask_table.currentRow()
+
+        # Connection of widgets
+        self.submit_name_task = self.submit_task_window.findChild(QLabel, "name_task_label_input")
+        self.submit_req_task = self.submit_task_window.findChild(QLabel, "req_task_label_input")
+        self.submit_prioritylevel = self.submit_task_window.findChild(QLabel, "prioritylevel_label_input")
+        self.submit_description_task = self.submit_task_window.findChild(QTextBrowser, "task_description_box")
+        self.submit_due_date_task = self.submit_task_window.findChild(QLabel, "duedate_label_input")
+        self.submit_btn = self.submit_task_window.findChild(QPushButton, "submit_btn")
+        self.cancel_btn = self.submit_task_window.findChild(QPushButton, "cancel_btn")
+        self.link_requirement_edit = self.submit_task_window.findChild(QLineEdit, "link_requirement_edit")
+
+        submit_index = selected_row
+
+        # Connection to task storage
+        if self.submit_name_task:
+            self.submit_name_task.setText(task_name_container[submit_index])
+        if self.submit_req_task:
+            self.submit_req_task.setText(task_requirement_container[submit_index])
+        if self.submit_prioritylevel:
+            self.submit_prioritylevel.setText(task_priority_level_container[submit_index])
+        if self.submit_description_task:
+            self.submit_description_task.setText(task_description_container[submit_index])
+        if self.submit_due_date_task:
+            self.submit_due_date_task.setText(task_due_date_container[submit_index])
+
+        # Buttons
+        if self.submit_btn:
+            self.submit_btn.clicked.connect(self.confirm_submit_task)
+        if self.cancel_btn:
+            self.cancel_btn.clicked.connect(self.submit_task_window.close)
+            self.setup_employee_dashboard()
+
+    def confirm_submit_task(self):
+        # Message box
+        confirm_msg_box = QMessageBox()
+        confirm_msg_box.setIcon(QMessageBox.Warning)
+        confirm_msg_box.setWindowTitle("Confirmation")
+        confirm_msg_box.setText("Are you sure you want to assign this task?")
+        confirm_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        confirm_msg_box.setDefaultButton(QMessageBox.No)
+        confirm_msg_box.setEscapeButton(QMessageBox.No)
+        confirm_msg_box.setModal(True)
+        confirm_msg_box.setWindowModality(Qt.ApplicationModal)
+
+        submit_result = confirm_msg_box.exec()
+
+        if submit_result == QMessageBox.Yes:
+            pass # Needed More LISTS (Temporary)
+
     def submit_file_task(self):
+        self.submit_file_task_window.show()
         # Get the task name and description
         if not self.task_name_edit.text() or not self.task_description_edit.toPlainText():
             empty_msg_box = QMessageBox()
@@ -1144,11 +1190,11 @@ class MainApp:
             no_selection_msg_box = QMessageBox()
             no_selection_msg_box.setIcon(QMessageBox.Warning)
             no_selection_msg_box.setWindowTitle("No Selection")
-            no_selection_msg_box.setText("Please select at least one member.")
+            no_selection_msg_box.setText("Please select at least one task.")
             no_selection_msg_box.exec()
             return
 
-    def show_join_group(self):
+    def show_join_group(self): # To be removed
         self.join_group_window.show()
 
     def show_login(self):
