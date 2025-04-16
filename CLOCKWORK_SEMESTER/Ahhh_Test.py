@@ -1,7 +1,7 @@
 import sys
 import mysql.connector # Need to be created tomorrow why not NOW!!!?
-import pymongo
 import datetime
+import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, 
                                QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit, QTextEdit, QTextBrowser)
@@ -69,6 +69,8 @@ completed_task_due_date_container = []
 completed_task_due_time_container = []
 completed_task_assigned_to_container = []
 completed_task_status_container = []
+
+completed_task_link_container = []
 
 email_container.append(email)
 email_container.append(manager_email)
@@ -549,6 +551,42 @@ class MainApp:
     def validate_task(self):
         self.validate_task_window.show()
 
+        #Connect the widgets
+        self.taskname_input = self.validate_task_window.findChild(QLabel, "taskname_label")
+        self.des_task_view = self.validate_task_window.findChild(QTextBrowser, "des_task_view")
+        self.link_submitted_input = self.validate_task_window.findChild(QLabel, "link_submitted_input")
+        self.validate_task_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
+        self.open_link_btn = self.validate_task_window.findChild(QPushButton, "openlink_btn")
+        self.cancel_btn = self.validate_task_window.findChild(QPushButton, "cancel_btn")
+
+        #Connection of task storage
+        selected_row = self.completedtask_table.currentRow()
+        validate_index = selected_row
+        
+        self.taskname_input.setText(completed_task_name_container[validate_index])
+        self.des_task_view.setText(completed_task_description_container[validate_index])
+        if 0 <= validate_index < len(completed_task_link_container):
+            self.link_submitted_input.setText(completed_task_link_container[validate_index])
+        else:
+            self.link_submitted_input.setText("No link available")
+
+        #Connection of buttons
+        #Addition if I declare "Not Verifiable?" in task validation
+        if self.validate_task_btn:
+            self.validate_task_btn.clicked.connect(self.confirm_validate_task)
+
+        if self.open_link_btn:
+            self.open_link_btn.clicked.connect(self.open_link_browser)
+
+        if self.cancel_btn:
+            self.cancel_btn.clicked.connect(self.validate_task_window.close)
+            
+    def open_link_browser(self): # Add more parameters
+        pass
+        
+    def confirm_validate_task(self):
+        pass
+
     def show_profile(self):
         global first_name_container
         global last_name_container
@@ -848,13 +886,41 @@ class MainApp:
         self.currenttask_table.setColumnCount(6)
         self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
+        for i in range(len(task_name_container)):
+            self.currenttask_table.insertRow(i)
+            self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
+            self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
+            self.currenttask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
+            self.currenttask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
+            self.currenttask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
+            self.currenttask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+
         self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
         self.pendingtask_table.setColumnCount(6)
         self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+        
+        for i in range(len(task_name_container)):
+            self.pendingtask_table.insertRow(i)
+            self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
+            self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
+            self.pendingtask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
+            self.pendingtask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
+            self.pendingtask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
+            self.pendingtask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
 
         self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
         self.completedtask_table.setColumnCount(6)
         self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+        if self.completedtask_table:
+            self.completedtask_table.setRowCount(len(completed_task_name_container))
+        for i in range(len(completed_task_name_container)):
+            self.completedtask_table.setItem(i, 0, QTableWidgetItem(completed_task_name_container[i]))
+            self.completedtask_table.setItem(i, 1, QTableWidgetItem(completed_task_requirement_container[i]))                    
+            self.completedtask_table.setItem(i, 2, QTableWidgetItem(completed_task_priority_level_container[i]))
+            self.completedtask_table.setItem(i, 3, QTableWidgetItem(completed_task_status_container[i]))
+            self.completedtask_table.setItem(i, 4, QTableWidgetItem(", ".join(completed_task_assigned_to_container[i]) if isinstance(completed_task_assigned_to_container[i], (set, list)) else str(completed_task_assigned_to_container[i])))
+            self.completedtask_table.setItem(i, 5, QTableWidgetItem(completed_task_due_date_container[i] + " " + completed_task_due_time_container[i]))
 
         self.dashboard_btn_manager = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn_manager:
@@ -1110,6 +1176,7 @@ class MainApp:
             self.show_assign_task()
             return
 
+    #Employee Menu
     def setup_employee_dashboard(self):
         self.log_out_button = self.current_dashboard.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
@@ -1240,6 +1307,7 @@ class MainApp:
                 completed_task_due_time_container.append(task_due_time_container[submit_index])
                 completed_task_assigned_to_container.append(task_assigned_to_container[submit_index])
                 completed_task_status_container.append("Completed")
+                completed_task_link_container.append(self.link_requirement_edit.text())
 
                 # Remove task details from current containers
                 del task_name_container[submit_index]
@@ -1279,7 +1347,7 @@ class MainApp:
             self.submit_task()
             return
 
-    def submit_file_task(self):
+    def submit_file_task(self): # HUGE DOUBTS (Can be removed)
         self.submit_file_task_window.show()
         # Get the task name and description
         if not self.task_name_edit.text() or not self.task_description_edit.toPlainText():
