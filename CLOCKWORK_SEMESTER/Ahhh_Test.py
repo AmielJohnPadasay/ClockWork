@@ -30,6 +30,16 @@ manager_role = "Manager"
 manager_birthdate = "2005-09-18"
 manager_sex = "Male"
 
+employee_email = "q@gmail.com"
+employee_password = "12345678"
+employee_first_name = "Quincy"
+employee_last_name = "Domingo"
+employee_middle_initial = "Q."
+employee_suffix = ""
+employee_role = "Employee"
+employee_birthdate = "2004-12-29"
+employee_sex = "Male"
+
 #Temporary containers for user data
 # These will be used to store user data temporarily before inserting into the database
 email_container = []
@@ -51,24 +61,50 @@ task_due_time_container = []
 task_assigned_to_container = []
 task_status_container = []
 
+completed_task_name_container = []
+completed_task_requirement_container = []
+completed_task_description_container = []
+completed_task_priority_level_container = []
+completed_task_due_date_container = []
+completed_task_due_time_container = []
+completed_task_assigned_to_container = []
+completed_task_status_container = []
+
 email_container.append(email)
 email_container.append(manager_email)
+email_container.append(employee_email)
+
 password_container.append(password)
 password_container.append(manager_password)
+password_container.append(employee_password)
+
 first_name_container.append(first_name)
 first_name_container.append(manager_first_name)
+first_name_container.append(employee_first_name)
+
 last_name_container.append(last_name)
 last_name_container.append(manager_last_name)
+last_name_container.append(employee_last_name)
+
 middle_initial_container.append(middle_initial)
 middle_initial_container.append(manager_middle_initial)
+middle_initial_container.append(employee_middle_initial)
+
 role_container.append(role)
 role_container.append(manager_role)
+role_container.append(employee_role)
+
 s_container.append(sex)
 s_container.append(manager_sex)
+s_container.append(employee_sex)
+
 suffix_container.append(suffix)
 suffix_container.append(manager_suffix)
+suffix_container.append(employee_suffix)
+
 birthdate_container.append(birthdate)
 birthdate_container.append(manager_birthdate)
+birthdate_container.append(employee_birthdate)
 
 class MainApp:
     def __init__(self):
@@ -453,16 +489,31 @@ class MainApp:
 
         #Connect the tasks' temp storage
         for i in range(len(task_name_container)):
-            self.pendingtask_table.insertRow(i)
-            self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
-            self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
-            self.pendingtask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
-            self.pendingtask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
-            self.pendingtask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
-            self.pendingtask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+                self.pendingtask_table.insertRow(i)
+                self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
+                self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
+                self.pendingtask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
+                self.pendingtask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
+                self.pendingtask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
+                self.pendingtask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
 
-        self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtask_table")    
+        self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
+        if self.completedtask_table:
+            self.completedtask_table.setColumnCount(6)
+            self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+            self.completedtask_table.setVerticalHeaderLabels([])
 
+        # Send to Completed Tables
+        if self.completedtask_table:
+            self.completedtask_table.setRowCount(len(completed_task_name_container))
+        for i in range(len(completed_task_name_container)):
+            self.completedtask_table.setItem(i, 0, QTableWidgetItem(completed_task_name_container[i]))
+            self.completedtask_table.setItem(i, 1, QTableWidgetItem(completed_task_requirement_container[i]))                    
+            self.completedtask_table.setItem(i, 2, QTableWidgetItem(completed_task_priority_level_container[i]))
+            self.completedtask_table.setItem(i, 3, QTableWidgetItem(completed_task_status_container[i]))
+            self.completedtask_table.setItem(i, 4, QTableWidgetItem(", ".join(completed_task_assigned_to_container[i]) if isinstance(completed_task_assigned_to_container[i], (set, list)) else str(completed_task_assigned_to_container[i])))
+            self.completedtask_table.setItem(i, 5, QTableWidgetItem(completed_task_due_date_container[i] + " " + completed_task_due_time_container[i]))
+    
         self.dashboard_btn = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn:
             self.dashboard_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(0))
@@ -990,6 +1041,7 @@ class MainApp:
 
             self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 2, QTableWidgetItem(new_task_priority_level))
             self.currenttask_table.setItem(self.currenttask_table.rowCount() - 1, 3, QTableWidgetItem(new_task_status))
+
             # Collect the names of the selected members
             for row in range(self.assign_member_group_table.rowCount()):
                 checkbox_item = self.assign_member_group_table.item(row, 0)
@@ -1123,8 +1175,6 @@ class MainApp:
     def submit_task(self):
         self.submit_task_window.show()
 
-        selected_row = self.currenttask_table.currentRow()
-
         # Connection of widgets
         self.submit_name_task = self.submit_task_window.findChild(QLabel, "name_task_label_input")
         self.submit_req_task = self.submit_task_window.findChild(QLabel, "req_task_label_input")
@@ -1135,43 +1185,99 @@ class MainApp:
         self.cancel_btn = self.submit_task_window.findChild(QPushButton, "cancel_btn")
         self.link_requirement_edit = self.submit_task_window.findChild(QLineEdit, "link_requirement_edit")
 
+        selected_row = self.currenttask_table.currentRow() 
         submit_index = selected_row
 
-        # Connection to task storage
-        if self.submit_name_task:
-            self.submit_name_task.setText(task_name_container[submit_index])
-        if self.submit_req_task:
-            self.submit_req_task.setText(task_requirement_container[submit_index])
-        if self.submit_prioritylevel:
-            self.submit_prioritylevel.setText(task_priority_level_container[submit_index])
-        if self.submit_description_task:
-            self.submit_description_task.setText(task_description_container[submit_index])
-        if self.submit_due_date_task:
-            self.submit_due_date_task.setText(task_due_date_container[submit_index])
+        if submit_index is not None and submit_index < len(task_requirement_container):
+            if self.submit_name_task:
+                    self.submit_name_task.setText(task_name_container[submit_index])
+            if self.submit_req_task:
+                    self.submit_req_task.setText(task_requirement_container[submit_index])
+            if self.submit_prioritylevel:
+                    self.submit_prioritylevel.setText(task_priority_level_container[submit_index])
+            if self.submit_description_task:
+                    self.submit_description_task.setText(task_description_container[submit_index])
+            if self.submit_due_date_task:
+                    self.submit_due_date_task.setText(task_due_date_container[submit_index])
+        else:
+            QMessageBox.warning(self.submit_task_window, "Error", "Invalid task selection.")
 
         # Buttons
         if self.submit_btn:
             self.submit_btn.clicked.connect(self.confirm_submit_task)
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.submit_task_window.close)
-            self.setup_employee_dashboard()
 
     def confirm_submit_task(self):
-        # Message box
-        confirm_msg_box = QMessageBox()
-        confirm_msg_box.setIcon(QMessageBox.Warning)
-        confirm_msg_box.setWindowTitle("Confirmation")
-        confirm_msg_box.setText("Are you sure you want to assign this task?")
-        confirm_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        confirm_msg_box.setDefaultButton(QMessageBox.No)
-        confirm_msg_box.setEscapeButton(QMessageBox.No)
-        confirm_msg_box.setModal(True)
-        confirm_msg_box.setWindowModality(Qt.ApplicationModal)
 
-        submit_result = confirm_msg_box.exec()
+        if self.link_requirement_edit != None:
+            selected_row = self.currenttask_table.currentRow() 
+            submit_index = selected_row
+            # Message box
+            confirm_msg_box = QMessageBox()
+            confirm_msg_box.setIcon(QMessageBox.Warning)
+            confirm_msg_box.setWindowTitle("Confirmation")
+            confirm_msg_box.setText("Do you want to submit this task?")
+            confirm_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            confirm_msg_box.setDefaultButton(QMessageBox.No)
+            confirm_msg_box.setEscapeButton(QMessageBox.No)
+            confirm_msg_box.setModal(True)
+            confirm_msg_box.setWindowModality(Qt.ApplicationModal)
 
-        if submit_result == QMessageBox.Yes:
-            pass # Needed More LISTS (Temporary)
+            submit_result = confirm_msg_box.exec()
+
+            if submit_result == QMessageBox.Yes:
+                # Needed More LISTS (Temporary)
+                selected_row = self.currenttask_table.currentRow()
+                submit_index = selected_row
+
+                # Move task details to completed task containers
+                completed_task_name_container.append(task_name_container[submit_index])
+                completed_task_requirement_container.append(task_requirement_container[submit_index])
+                completed_task_description_container.append(task_description_container[submit_index])
+                completed_task_priority_level_container.append(task_priority_level_container[submit_index])
+                completed_task_due_date_container.append(task_due_date_container[submit_index])
+                completed_task_due_time_container.append(task_due_time_container[submit_index])
+                completed_task_assigned_to_container.append(task_assigned_to_container[submit_index])
+                completed_task_status_container.append("Completed")
+
+                # Remove task details from current containers
+                del task_name_container[submit_index]
+                del task_requirement_container[submit_index]
+                del task_description_container[submit_index]
+                del task_priority_level_container[submit_index]
+                del task_due_date_container[submit_index]
+                del task_due_time_container[submit_index]
+                del task_assigned_to_container[submit_index]
+                del task_status_container[submit_index]
+
+                # Remove the task from the current task table
+                self.currenttask_table.removeRow(submit_index)
+
+                # Close the submit task window
+                self.submit_task_window.close()
+
+                # Show success message
+                success_msg_box = QMessageBox()
+                success_msg_box.setIcon(QMessageBox.Information)
+                success_msg_box.setWindowTitle("Task Submitted")
+                success_msg_box.setText("Task has been successfully submitted and moved to completed tasks.")
+                success_msg_box.exec()
+
+                self.setup_employee_dashboard()
+
+            elif submit_result == QMessageBox.No:
+                confirm_msg_box.close()
+                self.submit_task()
+
+        else:
+            no_link_msg_box = QMessageBox()
+            no_link_msg_box.setIcon(QMessageBox.Warning)
+            no_link_msg_box.setWindowTitle("No Link Entered")
+            no_link_msg_box.setText("Please enter the link you are going to submit.")
+            no_link_msg_box.exec()
+            self.submit_task()
+            return
 
     def submit_file_task(self):
         self.submit_file_task_window.show()
@@ -1204,6 +1310,10 @@ class MainApp:
     def log_out(self):
         self.login_window.show()
         self.log_in_stacked.setCurrentIndex(1)
+
+        self.email_lineedit.setText("")
+        self.password_lineedit.setText("")
+
         self.current_dashboard.hide()
 
     def run(self):
