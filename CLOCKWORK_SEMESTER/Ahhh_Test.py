@@ -515,7 +515,18 @@ class MainApp:
             self.completedtask_table.setItem(i, 3, QTableWidgetItem(completed_task_status_container[i]))
             self.completedtask_table.setItem(i, 4, QTableWidgetItem(", ".join(completed_task_assigned_to_container[i]) if isinstance(completed_task_assigned_to_container[i], (set, list)) else str(completed_task_assigned_to_container[i])))
             self.completedtask_table.setItem(i, 5, QTableWidgetItem(completed_task_due_date_container[i] + " " + completed_task_due_time_container[i]))
-    
+
+        completed_task_index = self.completedtask_table.currentRow()
+        if completed_task_index != -1:  # Ensure a row is selected
+            status_item = self.completedtask_table.item(completed_task_index, 3)  # Column 3 is the status column
+            if status_item and status_item.text() == "Completed - Validated":
+                already_validated_msg_box = QMessageBox()
+                already_validated_msg_box.setIcon(QMessageBox.Warning)
+                already_validated_msg_box.setWindowTitle("Task Already Validated")
+                already_validated_msg_box.setText("This task has already been validated.")
+                already_validated_msg_box.exec()
+                return
+            
         self.dashboard_btn = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn:
             self.dashboard_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(0))
@@ -571,7 +582,7 @@ class MainApp:
             self.link_submitted_input.setText("No link available")
 
         #Connection of buttons
-        #Addition if I declare "Not Verifiable?" in task validation
+        #Addition if I declare "Not Verifiable" in task validation
         if self.validate_task_btn:
             self.validate_task_btn.clicked.connect(self.confirm_validate_task)
 
@@ -581,11 +592,52 @@ class MainApp:
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.validate_task_window.close)
             
-    def open_link_browser(self): # Add more parameters
-        pass
+    def open_link_browser(self):
+        link = self.link_submitted_input.text()
+        if link:
+            webbrowser.open(link)
+        else:
+            no_link_msg_box = QMessageBox()
+            no_link_msg_box.setIcon(QMessageBox.Warning)
+            no_link_msg_box.setWindowTitle("No Link Provided")
+            no_link_msg_box.setText("No link is available to open.")
+            no_link_msg_box.exec()
         
-    def confirm_validate_task(self):
-        pass
+    def confirm_validate_task(self): # To be tested
+        selected_row = self.completedtask_table.currentRow()
+        validate_index = selected_row
+
+        valid_msg_box = QMessageBox()
+        valid_msg_box.setIcon(QMessageBox.Warning)
+        valid_msg_box.setWindowTitle("Confirmation")
+        valid_msg_box.setText("Are you sure you want to validate this task?")
+        valid_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        valid_msg_box.setDefaultButton(QMessageBox.No)
+        valid_msg_box.setEscapeButton(QMessageBox.No)
+        valid_msg_box.setModal(True)
+        valid_msg_box.setWindowModality(Qt.ApplicationModal)
+
+        valid_result = valid_msg_box.exec()
+
+        if valid_result == QMessageBox.Yes:
+            validated_status = "Completed - Validated"
+            completed_task_status_container[validate_index] = validated_status
+
+            # Update the status in the completed task table
+            self.completedtask_table.setItem(validate_index, 3, QTableWidgetItem(validated_status))
+
+            # Show success message
+            success_msg_box = QMessageBox()
+            success_msg_box.setIcon(QMessageBox.Information)
+            success_msg_box.setWindowTitle("Task Validated")
+            success_msg_box.setText("The task has been successfully validated.")
+            success_msg_box.exec()
+
+            self.validate_task_window.close()
+
+        elif valid_result == QMessageBox.No:
+            valid_msg_box.close
+            self.validate_task()
 
     def show_profile(self):
         global first_name_container
@@ -840,7 +892,6 @@ class MainApp:
         change_role_msg_box.setWindowModality(Qt.ApplicationModal)
 
         # Overwrite change in role container according to its index
-
         result = change_role_msg_box.exec()
             
         if result == QMessageBox.Yes:
@@ -934,9 +985,15 @@ class MainApp:
         if self.calendar_btn_manager:
             self.calendar_btn_manager.clicked.connect(lambda: self.stacked_Manager.setCurrentIndex(2))
 
+        #Assign Task
         self.assign_task_button = self.current_dashboard.findChild(QWidget, "assigntask_btn")
         if self.assign_task_button:
             self.assign_task_button.clicked.connect(self.show_assign_task)
+
+        #Remove task button connection
+        self.remove_task_button = self.current_dashboard.findChild(QWidget, "removetask_btn")
+        if self.remove_task_button:
+            self.remove_task_button.clicked.connect(self.remove_task)
 
         self.profile_btn = self.current_dashboard.findChild(QWidget, "profile_button")
         if self.profile_btn:
@@ -1175,6 +1232,54 @@ class MainApp:
             confirm_msg_box.close()
             self.show_assign_task()
             return
+        
+    def remove_task(self):
+        selected_row = self.pendingtask_table.currentRow()
+        remove_index = selected_row
+
+        if selected_row != -1:  # Ensure a row is selected
+
+            remove_task_msg_box = QMessageBox()
+            remove_task_msg_box.setIcon(QMessageBox.Warning)
+            remove_task_msg_box.setWindowTitle("Confirmation")
+            remove_task_msg_box.setText("Are you sure you want to remove this task?")
+            remove_task_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            remove_task_msg_box.setDefaultButton(QMessageBox.No)
+            remove_task_msg_box.setEscapeButton(QMessageBox.No)
+            remove_task_msg_box.setModal(True)
+            remove_task_msg_box.setWindowModality(Qt.ApplicationModal)
+
+            remove_result = remove_task_msg_box.exec()
+
+            if remove_result == QMessageBox.Yes:
+                
+                # Remove from current task containers
+                del task_name_container[remove_index]
+                del task_requirement_container[remove_index]
+                del task_description_container[remove_index]
+                del task_priority_level_container[remove_index]
+                del task_due_date_container[remove_index]
+                del task_due_time_container[remove_index]
+                del task_assigned_to_container[remove_index]
+                del task_status_container[remove_index]
+
+                # Remove task display in tables
+                self.currenttask_table.removeRow(remove_index)
+                self.pendingtask_table.removeRow(remove_index)
+
+                remove_task_msg_box.close()
+
+            elif remove_result == QMessageBox.No:
+                remove_task_msg_box.close()
+                self.setup_manager_dashboard()
+
+        else:
+            no_selection_msg_box = QMessageBox()
+            no_selection_msg_box.setIcon(QMessageBox.Warning)
+            no_selection_msg_box.setWindowTitle("No Selection")
+            no_selection_msg_box.setText("Please select a task to remove.")
+            no_selection_msg_box.exec()
+            return
 
     #Employee Menu
     def setup_employee_dashboard(self):
@@ -1277,7 +1382,7 @@ class MainApp:
 
     def confirm_submit_task(self):
 
-        if self.link_requirement_edit != None:
+        if self.link_requirement_edit and self.link_requirement_edit.text().strip():
             selected_row = self.currenttask_table.currentRow() 
             submit_index = selected_row
             # Message box
@@ -1306,7 +1411,7 @@ class MainApp:
                 completed_task_due_date_container.append(task_due_date_container[submit_index])
                 completed_task_due_time_container.append(task_due_time_container[submit_index])
                 completed_task_assigned_to_container.append(task_assigned_to_container[submit_index])
-                completed_task_status_container.append("Completed")
+                completed_task_status_container.append("Completed - Not Validated")
                 completed_task_link_container.append(self.link_requirement_edit.text())
 
                 # Remove task details from current containers
@@ -1331,6 +1436,9 @@ class MainApp:
                 success_msg_box.setWindowTitle("Task Submitted")
                 success_msg_box.setText("Task has been successfully submitted and moved to completed tasks.")
                 success_msg_box.exec()
+
+                # Make link req empty
+                self.link_requirement_edit.setText("")
 
                 self.setup_employee_dashboard()
 
@@ -1374,6 +1482,7 @@ class MainApp:
     def show_login(self):
         self.login_window.show()
         self.create_account_window.hide()
+        self.setup_login_page()
     
     def log_out(self):
         self.login_window.show()
