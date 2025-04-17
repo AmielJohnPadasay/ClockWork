@@ -108,12 +108,106 @@ birthdate_container.append(birthdate)
 birthdate_container.append(manager_birthdate)
 birthdate_container.append(employee_birthdate)
 
+class Clockwork_Database:
+    def __init__(self):
+        self.conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="Pads_2004120",
+            database="clockwork"
+            )
+        self.mycursor = self.conn.cursor()
+
+    def errorDisplay(self, errno, sqlstate, msg):
+        print(f"Error Code: {errno}, SQL State: {sqlstate}, Message: {msg}")
+
+    def create(self):
+        try:
+            self.mycursor.execute("CREATE DATABASE ClockWork")
+            return "Database is successfully created"
+        
+        except mysql.connector.Error as err:
+            print(err)
+
+    def create_users_info_table(self):
+        try:
+            self.mycursor.execute("""
+                CREATE TABLE Users_Info(
+                    user_id INT AUTO_INCREMENT PRIMARY KEY, 
+                    username VARCHAR(255) NOT NULL, 
+                    email VARCHAR(255) NOT NULL, 
+                    password VARCHAR(255) NOT NULL,
+                    birthdate DATE NOT NULL, 
+                    role VARCHAR(50) NOT NULL, 
+                    first_name VARCHAR(100) NOT NULL, 
+                    last_name VARCHAR(100) NOT NULL, 
+                    middle_initial VARCHAR(10),
+                    suffix VARCHAR(10), 
+                    sex VARCHAR(10) NOT NULL, 
+                    fingerprint TINYBLOB, 
+                    task_id INT
+                )
+            """)
+ 
+        except mysql.connector.Error as err:
+            self.errorDisplay(err.errno, err.sqlstate, err.msg)
+
+    def create_task_storage_table(self):
+        try:
+            self.mycursor.execute("""
+                CREATE TABLE Task_Storage(
+                    task_id INT AUTO_INCREMENT PRIMARY KEY, 
+                    task_name VARCHAR(255) NOT NULL, 
+                    task_description VARCHAR(500) NOT NULL, 
+                    submitted_link VARCHAR(500), 
+                    due_date_time DATETIME NOT NULL, 
+                    priority_level VARCHAR(50) NOT NULL, 
+                    status VARCHAR(50) NOT NULL, 
+                    submitted_date_time DATETIME, 
+                    group_members VARCHAR(255), 
+                    user_id INT
+                )
+            """)
+        except mysql.connector.Error as err:
+            self.errorDisplay(err.errno, err.sqlstate, err.msg)
+
+    def create_account_to_db(self, email, password, first_name, last_name, middle_initial, suffix, birthdate, sex, role):
+        try:
+            query = """
+                INSERT INTO Users_Info (username, email, password, birthdate, role, first_name, last_name, middle_initial, suffix, sex)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            values = (
+                f"{first_name} {last_name}",  # username
+                email,
+                password,
+                birthdate,
+                role,
+                first_name,
+                last_name,
+                middle_initial,
+                suffix,
+                sex
+            )
+            self.mycursor.execute(query, values)
+            self.conn.commit()
+            print("Account successfully added to the database.")
+        except mysql.connector.Error as err:
+            self.errorDisplay(err.errno, err.sqlstate, err.msg)
+
+DB = Clockwork_Database()
+print(DB.create())
+print(DB.create_task_storage_table())
+print(DB.create_users_info_table())
+print(DB.create_account_to_db(email, password, first_name, last_name, middle_initial, suffix, birthdate, sex, role))
+print(DB.create_account_to_db(manager_email, manager_password, manager_first_name, manager_last_name, manager_middle_initial, manager_suffix, manager_birthdate, manager_sex, manager_role))
+        
 class MainApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
         self.loader = QUiLoader()
         self.current_dashboard = None
-        
+
         # Starting UIs
         self.login_window = self.loader.load("log_in_main.ui", None)
         self.create_account_window = self.loader.load("Create_Login.ui", None)
