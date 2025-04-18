@@ -1,5 +1,6 @@
 import sys
 import mysql.connector # Need to be created tomorrow why not NOW!!!?
+from datetime import datetime
 import datetime
 import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
@@ -173,6 +174,14 @@ class Clockwork_Database:
 
     def create_account_to_db(self, email, password, first_name, last_name, middle_initial, suffix, birthdate, sex, role):
         try:
+            # Check if the email already exists in the database
+            check_query = "SELECT email FROM Users_Info WHERE email = %s"
+            self.mycursor.execute(check_query, (email,))
+            result = self.mycursor.fetchone()
+            if result:
+                print("Error: An account with this email already exists.")
+                return "Duplicate email detected. Account not added."
+
             query = """
                 INSERT INTO Users_Info (username, email, password, birthdate, role, first_name, last_name, middle_initial, suffix, sex)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -350,7 +359,7 @@ class MainApp:
 
     def validate_create_account(self):
         # Error handling for empty fields
-        if not self.email_edit.text() or not self.last_name_edit.text() or not self.first_name_edit.text() or not self.middle_init_edit.text() or not self.password_edit.text() or not self.confirm_password_edit.text():
+        if not self.email_edit.text() or not self.last_name_edit.text() or not self.first_name_edit.text() or not self.password_edit.text() or not self.confirm_password_edit.text():
             empty_msg_box = QMessageBox()
             empty_msg_box.setIcon(QMessageBox.Warning)
             empty_msg_box.setWindowTitle("Empty Fields")
@@ -394,13 +403,25 @@ class MainApp:
             not_match_msg_box.exec()
             return 
 
-        # Check if the email already exists in the database
-        elif self.email_edit.text() in email_container:
-            email_exists_msg_box = QMessageBox()
-            email_exists_msg_box.setIcon(QMessageBox.Warning)
-            email_exists_msg_box.setWindowTitle("Email Already Exists")
-            email_exists_msg_box.setText("This email is already registered.")
-            email_exists_msg_box.exec()
+        # Check if the email already exists in the official database
+        try:
+            query = "SELECT email FROM Users_Info WHERE email = %s"
+            DB.mycursor.execute(query, (self.email_edit.text(),))
+            result = DB.mycursor.fetchone()
+            if result:
+                email_exists_msg_box = QMessageBox()
+                email_exists_msg_box.setIcon(QMessageBox.Warning)
+                email_exists_msg_box.setWindowTitle("Email Already Exists")
+                email_exists_msg_box.setText("This email is already registered.")
+                email_exists_msg_box.exec()
+                return
+            
+        except mysql.connector.Error as err:
+            error_msg_box = QMessageBox()
+            error_msg_box.setIcon(QMessageBox.Critical)
+            error_msg_box.setWindowTitle("Database Error")
+            error_msg_box.setText(f"An error occurred while checking the email: {err.msg}")
+            error_msg_box.exec()
             return
 
         # If all validations pass, store the account into the database
@@ -427,6 +448,10 @@ class MainApp:
         new_last_name = self.last_name_edit.text()
         new_middle_initial = self.middle_init_edit.text()
         new_suffix = self.suffix_combobox.currentText()
+
+        if new_suffix == "-select-":
+            new_suffix = ""
+
         new_birthdate = self.birthdate_edit.text()
 
         if self.male_radio_btn.isChecked():
@@ -436,7 +461,7 @@ class MainApp:
         elif self.others_radio_btn.isChecked():
             selected_s = self.others_edit.text()
 
-        #Append data to temporary containers
+        # Append data to temporary containers
         email_container.append(new_email)
         password_container.append(new_password)
         first_name_container.append(new_first_name)
@@ -448,6 +473,26 @@ class MainApp:
 
         # Set role to employee
         role_container.append("Employee")
+
+        # Insert the new account into the official database
+        try:
+            DB.create_account_to_db(
+                email=new_email,
+                password=new_password,
+                first_name=new_first_name,
+                last_name=new_last_name,
+                middle_initial=new_middle_initial,
+                suffix=new_suffix,
+                birthdate=new_birthdate,
+                sex=selected_s,
+                role="Employee"
+            )
+        except mysql.connector.Error as err:
+            error_msg_box = QMessageBox()
+            error_msg_box.setIcon(QMessageBox.Critical)
+            error_msg_box.setWindowTitle("Database Error")
+            error_msg_box.setText(f"An error occurred while storing the account: {err.msg}")
+            error_msg_box.exec()
 
         #Ensure that the create account edit credentials are empty
 
@@ -470,70 +515,85 @@ class MainApp:
         self.setup_login_page()
 
     def load_dashboard(self):
-        #To be removed
-        global email
-        global password
-        global manager_email
-        global manager_password
-
-
-        global email_container
-        global password_container
-        global role_container
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
 
         # Map roles to UI files
         dashboard_files = {
-                "Supervisor": "dashboard_updated.ui",
-                "Manager": "dashboard_manager_updated.ui",
-                "Employee": "dashboard_employee_new.ui"
-            }
-        # Password and email validation
-        if self.email in email_container:
-            index = email_container.index(self.email)
+            "Supervisor": "dashboard_updated.ui",
+            "Manager": "dashboard_manager_updated.ui",
+            "Employee": "dashboard_employee_new.ui"
+        }
 
-        if self.password == password_container[index]:
-            self.role = role_container[index]
-            ui_file_path = dashboard_files.get(self.role)
+        try:
+            # Query the database to check if the email and password match
+            query = "SELECT role FROM Users_Info WHERE email = %s AND password = %s"
+            DB.mycursor.execute(query, (self.email, self.password))
+            result = DB.mycursor.fetchone()
 
-            if ui_file_path:
-                self.open_dashboard(ui_file_path)
-   
-        else:
-            login_failed_msg_box = QMessageBox()
-            login_failed_msg_box.setIcon(QMessageBox.Warning)
-            login_failed_msg_box.setWindowTitle("Login Failed")
-            login_failed_msg_box.setText("Invalid email or password. Please try again.")
-            login_failed_msg_box.exec()
+            if result:
+                self.role = result[0]
+                ui_file_path = dashboard_files.get(self.role)
+
+                if ui_file_path:
+                    self.open_dashboard(ui_file_path)
+            else:
+                # Show login failed message if no match is found
+                login_failed_msg_box = QMessageBox()
+                login_failed_msg_box.setIcon(QMessageBox.Warning)
+                login_failed_msg_box.setWindowTitle("Login Failed")
+                login_failed_msg_box.setText("Invalid email or password. Please try again.")
+                login_failed_msg_box.exec()
+                return
+
+        except mysql.connector.Error as err:
+            # Handle database connection errors
+            error_msg_box = QMessageBox()
+            error_msg_box.setIcon(QMessageBox.Critical)
+            error_msg_box.setWindowTitle("Database Error")
+            error_msg_box.setText(f"An error occurred while connecting to the database: {err.msg}")
+            error_msg_box.exec()
             return
 
     def open_dashboard(self, ui_file_path):
-        #Global variables to be removed
-        global email
-        global password
-
-        global email_container
-        global password_container
-        global role_container
-
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
 
-        ui_file = QFile(ui_file_path)
-        if ui_file.open(QFile.ReadOnly):
-            index = email_container.index(self.email)
-            self.role = role_container[index]
-            self.current_dashboard = self.loader.load(ui_file, None)  # Store the dashboard instance
-            self.current_dashboard.show()
-            self.login_window.hide()
-            ui_file.close()
-            if self.role == "Supervisor":
-                self.setup_supervisor_dashboard()
-            elif self.role == "Manager":
-                self.setup_manager_dashboard()
-            elif self.role == "Employee":
-                self.setup_employee_dashboard()
+        try:
+            # Query the database to get the role of the user
+            query = "SELECT role FROM Users_Info WHERE email = %s AND password = %s"
+            DB.mycursor.execute(query, (self.email, self.password))
+            result = DB.mycursor.fetchone()
+
+            if result:
+                self.role = result[0]  # Extract the role from the query result
+                ui_file = QFile(ui_file_path)
+                if ui_file.open(QFile.ReadOnly):
+                    self.current_dashboard = self.loader.load(ui_file, None)  # Store the dashboard instance
+                    self.current_dashboard.show()
+                    self.login_window.hide()
+                    ui_file.close()
+                    if self.role == "Supervisor":
+                        self.setup_supervisor_dashboard()
+                    elif self.role == "Manager":
+                        self.setup_manager_dashboard()
+                    elif self.role == "Employee":
+                        self.setup_employee_dashboard()
+            else:
+                # Show error message if no matching user is found
+                error_msg_box = QMessageBox()
+                error_msg_box.setIcon(QMessageBox.Warning)
+                error_msg_box.setWindowTitle("Login Failed")
+                error_msg_box.setText("Invalid email or password. Please try again.")
+                error_msg_box.exec()
+
+        except mysql.connector.Error as err:
+            # Handle database connection errors
+            error_msg_box = QMessageBox()
+            error_msg_box.setIcon(QMessageBox.Critical)
+            error_msg_box.setWindowTitle("Database Error")
+            error_msg_box.setText(f"An error occurred while connecting to the database: {err.msg}")
+            error_msg_box.exec()
 
     #Supervisor's Menu
     def setup_supervisor_dashboard(self):
@@ -757,7 +817,7 @@ class MainApp:
 
             self.name_label = self.profile_window.findChild(QLabel, "name_label")
             if self.name_label:
-                self.name_label.setText((f"Name: {first_name_container[index]} {last_name_container[index]}"))
+                self.name_label.setText((f"Name: {first_name_container[index]} {last_name_container[index]} {middle_initial_container[index]} {suffix_container[index]}"))
 
             self.role_label = self.profile_window.findChild(QLabel, "role_label")
             if self.role_label:
@@ -775,27 +835,61 @@ class MainApp:
             if self.birthdate_label:
                 self.birthdate_label.setText((f"{birthdate_container[index]}"))
 
+            try:
+                # Query the database to get the user's credentials
+                query = """
+                    SELECT first_name, last_name, middle_initial, suffix, role, sex, birthdate, email
+                    FROM Users_Info
+                    WHERE email = %s
+                    """
+                DB.mycursor.execute(query, (self.email,))
+                result = DB.mycursor.fetchone()
+
+                if result:
+                    first_name, last_name, middle_initial, suffix, role, sex, birthdate, email = result
+                    self.name_label = self.profile_window.findChild(QLabel, "name_label")
+                if self.name_label:
+                    self.name_label.setText(f"Name: {first_name} {last_name} {middle_initial} {suffix}")
+                    self.role_label = self.profile_window.findChild(QLabel, "role_label")
+                if self.role_label:
+                    self.role_label.setText(f"Role: {role}")
+                    self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
+                if self.age_and_sex_label:
+                    self.age_and_sex_label.setText(f"Age: {self.calculate_age(birthdate)} years old\n\nSex: {sex}")
+                    self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
+                if self.email_label:
+                    self.email_label.setText(email)
+                    self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
+                if self.birthdate_label:
+                    self.birthdate_label.setText(str(birthdate))
+
+                else:
+                    error_msg_box = QMessageBox()
+                    error_msg_box.setIcon(QMessageBox.Warning)
+                    error_msg_box.setWindowTitle("Error")
+                    error_msg_box.setText("User credentials not found in the database.")
+                    error_msg_box.exec()
+
+            except mysql.connector.Error as err:
+                error_msg_box = QMessageBox()
+                error_msg_box.setIcon(QMessageBox.Critical)
+                error_msg_box.setWindowTitle("Database Error")
+                error_msg_box.setText(f"An error occurred while fetching user credentials: {err.msg}")
+                error_msg_box.exec()
+
 
     def calculate_age(self, birthdate):
-        birthdate = datetime.datetime.strptime(birthdate, "%Y-%m-%d").date()
+        if isinstance(birthdate, str):
+            birthdate = datetime.datetime.strptime(birthdate, "%Y-%m-%d").date()
         today = datetime.date.today()
         age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
         return age    
 
 
     def show_edit_profile(self):
-        global first_name_container
-        global last_name_container
-        global email_container
-        global role_container
-        global s_container
-        global birthdate_container
-        global suffix_container
-        global middle_initial_container
-
         self.edit_profile_window.show()
 
-        #Connection of widgets
+        # Connection of widgets
         self.edit_first_name = self.edit_profile_window.findChild(QLineEdit, "new_first_name_edit")
         self.edit_last_name = self.edit_profile_window.findChild(QLineEdit, "new_last_name_edit")
         self.edit_middle_initial = self.edit_profile_window.findChild(QLineEdit, "new_middle_initial_edit")
@@ -823,33 +917,56 @@ class MainApp:
 
         self.email = self.email_lineedit.text()
 
-        if self.email in email_container:
-            index = email_container.index(self.email)
-            self.edit_first_name.setText(first_name_container[index])
-            self.edit_last_name.setText(last_name_container[index])
-            self.edit_middle_initial.setText(middle_initial_container[index])
-            self.edit_suffix.setCurrentText(suffix_container[index])
-            self.edit_birthdate.setDate(datetime.datetime.strptime(birthdate_container[index], "%Y-%m-%d").date())
+        try:
+            # Query the database to fetch user information
+            query = """
+                SELECT first_name, last_name, middle_initial, suffix, sex, birthdate
+                FROM Users_Info
+                WHERE email = %s
+            """
+            DB.mycursor.execute(query, (self.email,))
+            result = DB.mycursor.fetchone()
 
-            self.sex = s_container[index].strip().lower()
-            if self.sex == "male":
-                self.new_male_radio.setChecked(True)
-                self.new_female_radio.setChecked(False)
-                if self.new_others_radio:
-                    self.new_others_radio.setChecked(False)
-                    self.new_others_edit.clear()
+            if result:
+                first_name, last_name, middle_initial, suffix, sex, birthdate = result
+                self.edit_first_name.setText(first_name)
+                self.edit_last_name.setText(last_name)
+                self.edit_middle_initial.setText(middle_initial)
+                self.edit_suffix.setCurrentText(suffix if suffix else "-select-")
+                
+                if birthdate and isinstance(birthdate, str):
+                    birthdate = birthdate.strip()  # Remove extra spaces
+                    try:
+                        self.edit_birthdate.setDate(datetime.datetime.strptime(birthdate, "%Y-%m-%d").date()) #The problem to be fixed
+                    except ValueError:
+                        QMessageBox.warning(self.edit_profile_window, "Invalid Date Format", "The birthdate format is invalid. Please ensure it is in 'YYYY-MM-DD' format.")
+                        self.edit_birthdate.setDate(datetime.date.today())
+                else:
+                    QMessageBox.warning(self.edit_profile_window, "Missing Birthdate", "The birthdate is missing or invalid. Setting to today's date.")
+                    self.edit_birthdate.setDate(datetime.date.today())
 
-            elif self.sex == "female":
-                self.new_male_radio.setChecked(False)
-                self.new_female_radio.setChecked(True)
-                if self.new_others_radio:
-                    self.new_others_radio.setChecked(False)
-                    self.new_others_edit.clear()
+                sex = sex.strip().lower()
+                if sex == "male":
+                    self.new_male_radio.setChecked(True)
+                    self.new_female_radio.setChecked(False)
+                    if self.new_others_radio:
+                        self.new_others_radio.setChecked(False)
+                        self.new_others_edit.clear()
+                elif sex == "female":
+                    self.new_male_radio.setChecked(False)
+                    self.new_female_radio.setChecked(True)
+                    if self.new_others_radio:
+                        self.new_others_radio.setChecked(False)
+                        self.new_others_edit.clear()
+                elif sex:  # Handle non-empty, non-standard values
+                    if self.new_others_radio:
+                        self.new_others_radio.setChecked(True)
+                        self.new_others_edit.setText(sex)
+            else:
+                QMessageBox.warning(self.edit_profile_window, "Error", "User data not found in the database.")
 
-            elif self.sex:  # Handle non-empty, non-standard values
-                if self.new_others_radio:
-                    self.new_others_radio.setChecked(True)
-                    self.new_others_edit.setText(s_container[index])
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.edit_profile_window, "Database Error", f"An error occurred: {err.msg}")
 
         self.save_changes_button = self.edit_profile_window.findChild(QPushButton, "save_changes_btn")
         self.cancel_btn = self.edit_profile_window.findChild(QPushButton, "new_cancel_btn")
@@ -859,7 +976,6 @@ class MainApp:
 
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.edit_profile_window.close)
-            self.show_profile()
 
     def save_changes_with_profile(self):
         save_change_msg_box = QMessageBox()
@@ -873,39 +989,75 @@ class MainApp:
         save_change_msg_box.setWindowModality(Qt.ApplicationModal)
 
         result = save_change_msg_box.exec()
-            
-        if result == QMessageBox.Yes: # To be continued
-            index = email_container.index(self.email)
-            new_first_name = self.edit_first_name.text()
-            new_last_name = self.edit_last_name.text()
-            new_middle_initial = self.edit_middle_initial.text()
-            new_suffix = self.edit_suffix.currentText()
-            new_birthdate = self.edit_birthdate.text()
 
-            first_name_container[index] = new_first_name
-            last_name_container[index] = new_last_name
-            middle_initial_container[index] = new_middle_initial
-            suffix_container[index] = new_suffix
-            birthdate_container[index] = new_birthdate
+        if result == QMessageBox.Yes:
+            try:
+                index = email_container.index(self.email)
+                new_first_name = self.edit_first_name.text()
+                new_last_name = self.edit_last_name.text()
+                new_middle_initial = self.edit_middle_initial.text()
+                new_suffix = self.edit_suffix.currentText()
+                new_birthdate = self.edit_birthdate.text()
 
-            if self.new_male_radio.isChecked():
-                new_s = "Male"
-            elif self.new_female_radio.isChecked():
-                new_s = "Female"
-            elif self.new_others_radio.isChecked():
-                if self.new_others_edit:
-                    new_s = self.new_others_edit.text()
-            s_container[index] = new_s
+                if self.new_male_radio.isChecked():
+                    new_s = "Male"
+                elif self.new_female_radio.isChecked():
+                    new_s = "Female"
+                elif self.new_others_radio.isChecked():
+                    if self.new_others_edit:
+                        new_s = self.new_others_edit.text()
+                else:
+                    new_s = ""
 
-            self.edit_profile_window.close()
-            self.show_profile()
-            return
+                # Update temporary containers
+                first_name_container[index] = new_first_name
+                last_name_container[index] = new_last_name
+                middle_initial_container[index] = new_middle_initial
+                suffix_container[index] = new_suffix
+                birthdate_container[index] = new_birthdate
+                s_container[index] = new_s
+
+                # Update the official database
+                update_query = """
+                    UPDATE Users_Info
+                    SET first_name = %s, last_name = %s, middle_initial = %s, suffix = %s, birthdate = %s, sex = %s
+                    WHERE email = %s
+                """
+                update_values = (
+                    new_first_name,
+                    new_last_name,
+                    new_middle_initial,
+                    new_suffix if new_suffix != "-select-" else None,
+                    new_birthdate,
+                    new_s,
+                    self.email
+                )
+                DB.mycursor.execute(update_query, update_values)
+                DB.conn.commit()
+
+                # Close the edit profile window and refresh the profile view
+                self.edit_profile_window.close()
+                self.show_profile()
+
+                # Show success message
+                success_msg_box = QMessageBox()
+                success_msg_box.setIcon(QMessageBox.Information)
+                success_msg_box.setWindowTitle("Profile Updated")
+                success_msg_box.setText("Your profile has been successfully updated.")
+                success_msg_box.exec()
+
+            except mysql.connector.Error as err:
+                error_msg_box = QMessageBox()
+                error_msg_box.setIcon(QMessageBox.Critical)
+                error_msg_box.setWindowTitle("Database Error")
+                error_msg_box.setText(f"An error occurred while updating your profile: {err.msg}")
+                error_msg_box.exec()
 
         elif result == QMessageBox.No:
             save_change_msg_box.close()
             self.show_edit_profile()
 
-    def show_select_role_with_data(self):
+    def show_select_role_with_data(self): # Update the database with role changes
         selected_row = self.user_table.currentRow()
         self.name = ""
         self.role = ""
@@ -935,6 +1087,79 @@ class MainApp:
             no_change_msg_box.setText("You cannot change the role of this user.")
             no_change_msg_box.exec()
             self.select_role_window.hide()
+
+    def save_role_changes(self): # Save role changes to the database
+        global role_container
+
+        change_role_msg_box = QMessageBox()
+        change_role_msg_box.setIcon(QMessageBox.Warning)
+        change_role_msg_box.setWindowTitle("Confirmation")
+        change_role_msg_box.setText("Are you sure you want to change the role?")
+        change_role_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        change_role_msg_box.setDefaultButton(QMessageBox.No)
+        change_role_msg_box.setEscapeButton(QMessageBox.No)
+        change_role_msg_box.setModal(True)
+        change_role_msg_box.setWindowModality(Qt.ApplicationModal)
+
+        result = change_role_msg_box.exec()
+            
+        if result == QMessageBox.Yes:
+            selected_row = self.user_table.currentRow()
+            if selected_row != -1:  # Ensure a row is selected
+                name_item = self.user_table.item(selected_row, 0)
+                role_item = self.user_table.item(selected_row, 2)
+                email_item = self.user_table.item(selected_row, 1)
+
+            if name_item and role_item and email_item:
+                name = name_item.text()
+                role = role_item.text()
+                email = email_item.text()
+
+            # Determine the new role based on the selected radio button
+            if self.supervisor_radio_btn.isChecked():
+                new_role = "Supervisor"
+            elif self.manager_radio_btn.isChecked():
+                new_role = "Manager"
+            elif self.employee_radio_btn.isChecked():
+                new_role = "Employee"
+            else:
+                new_role = role  # Default to the current role if no selection is made
+
+            # Update the role in the role_container
+            role_container[selected_row] = new_role
+
+            # Update the role in the table
+            if role_item:
+                role_item.setText(new_role)
+
+            # Update the role in the database
+            try:
+                update_query = """
+                    UPDATE Users_Info
+                    SET role = %s
+                    WHERE email = %s
+                """
+                DB.mycursor.execute(update_query, (new_role, email))
+                DB.conn.commit()
+
+                # Show success message
+                success_msg_box = QMessageBox()
+                success_msg_box.setIcon(QMessageBox.Information)
+                success_msg_box.setWindowTitle("Role Updated")
+                success_msg_box.setText(f"The role of {name} has been successfully updated to {new_role}.")
+                success_msg_box.exec()
+
+            except mysql.connector.Error as err:
+                error_msg_box = QMessageBox()
+                error_msg_box.setIcon(QMessageBox.Critical)
+                error_msg_box.setWindowTitle("Database Error")
+                error_msg_box.setText(f"An error occurred while updating the role: {err.msg}")
+                error_msg_box.exec()
+
+            self.select_role_window.hide()
+
+        elif result == QMessageBox.No:
+            change_role_msg_box.close()
 
     def show_select_role(self):
         self.select_role_window.show()
@@ -968,54 +1193,6 @@ class MainApp:
         self.cancel_button = self.select_role_window.findChild(QWidget, "cancel_btn")
         if self.cancel_button:
             self.cancel_button.clicked.connect(self.select_role_window.hide)
-
-    def save_role_changes(self):
-        global role_container
-        global first_name_container
-        global last_name_container
-        global email_container
-
-        change_role_msg_box = QMessageBox()
-        change_role_msg_box.setIcon(QMessageBox.Warning)
-        change_role_msg_box.setWindowTitle("Confirmation")
-        change_role_msg_box.setText("Are you sure you want to change the role?")
-        change_role_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        change_role_msg_box.setDefaultButton(QMessageBox.No)
-        change_role_msg_box.setEscapeButton(QMessageBox.No)
-        change_role_msg_box.setModal(True)
-        change_role_msg_box.setWindowModality(Qt.ApplicationModal)
-
-        # Overwrite change in role container according to its index
-        result = change_role_msg_box.exec()
-            
-        if result == QMessageBox.Yes:
-            selected_row = self.user_table.currentRow()
-            if selected_row != -1:  # Ensure a row is selected
-                name_item = self.user_table.item(selected_row, 0)
-                role_item = self.user_table.item(selected_row, 2)
-
-            if name_item and role_item:
-                name = name_item.text()
-                role = role_item.text()
-
-            # Connect to role_container to change role
-            if self.supervisor_radio_btn.isChecked():
-                new_role = "Supervisor"
-            elif self.manager_radio_btn.isChecked():
-                new_role = "Manager"
-            elif self.employee_radio_btn.isChecked():
-                new_role = "Employee"
-            role_container[selected_row] = new_role
-
-            # Update the role in the table
-            if role_item:
-                role_item.setText(new_role)
-                self.select_role_window.hide() 
-                change_role_msg_box.close()
-
-        elif result == QMessageBox.No:
-            change_role_msg_box.close()
-            self.show_select_role()
 
     #Manager's Menu
     def setup_manager_dashboard(self):
