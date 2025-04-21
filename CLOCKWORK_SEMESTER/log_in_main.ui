@@ -7,11 +7,15 @@
     <x>0</x>
     <y>0</y>
     <width>695</width>
-    <height>569</height>
+    <height>669</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>ClockWork</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>resources/new_menu_window_icon.png</normaloff>resources/new_menu_window_icon.png</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_3">
@@ -65,7 +69,7 @@
          <property name="minimumSize">
           <size>
            <width>300</width>
-           <height>150</height>
+           <height>250</height>
           </size>
          </property>
          <property name="font">
@@ -75,10 +79,13 @@
           </font>
          </property>
          <property name="frameShape">
-          <enum>QFrame::Shape::Box</enum>
+          <enum>QFrame::Shape::NoFrame</enum>
          </property>
          <property name="text">
-          <string>Logo</string>
+          <string/>
+         </property>
+         <property name="pixmap">
+          <pixmap>resources/logo.png</pixmap>
          </property>
          <property name="alignment">
           <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -192,6 +199,7 @@
               <font>
                <family>Verdana</family>
                <pointsize>12</pointsize>
+               <underline>true</underline>
               </font>
              </property>
              <property name="autoFillBackground">

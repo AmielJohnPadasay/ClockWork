@@ -18,6 +18,10 @@
   <property name="windowTitle">
    <string>ClockWork</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>resources/new_menu_window_icon.png</normaloff>resources/new_menu_window_icon.png</iconset>
+  </property>
   <property name="autoFillBackground">
    <bool>false</bool>
   </property>
@@ -27,15 +31,24 @@
      <widget class="QLabel" name="logo">
       <property name="minimumSize">
        <size>
-        <width>149</width>
+        <width>405</width>
+        <height>50</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>405</width>
         <height>50</height>
        </size>
       </property>
       <property name="frameShape">
-       <enum>QFrame::Shape::Box</enum>
+       <enum>QFrame::Shape::NoFrame</enum>
       </property>
       <property name="text">
-       <string>Logo</string>
+       <string/>
+      </property>
+      <property name="pixmap">
+       <pixmap>resources/menu_logo.png</pixmap>
       </property>
       <property name="alignment">
        <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -82,7 +95,7 @@
      <widget class="QFrame" name="btns_frame">
       <property name="maximumSize">
        <size>
-        <width>16777215</width>
+        <width>100</width>
         <height>16777215</height>
        </size>
       </property>

@@ -6,8 +6,8 @@ from datetime import datetime
 import datetime
 import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
-from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget, 
-                               QTableWidgetItem, QRadioButton, QDateEdit, QListWidget, QTimeEdit, QTextEdit, QTextBrowser)
+from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget,
+                               QTableWidgetItem, QRadioButton, QDateEdit, QTabWidget, QTimeEdit, QTextEdit, QTextBrowser)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, QDate
@@ -720,6 +720,21 @@ class MainApp:
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
 
+        self.validate_btn = self.current_dashboard.findChild(QWidget, "validatetask_btn")
+        self.task_tab = self.current_dashboard.findChild(QTabWidget, "task_tab")
+        if self.task_tab:
+            self.task_tab.currentChanged.connect(self.update_validate_btn_visibility)
+            self.update_validate_btn_visibility(self.task_tab.currentIndex())
+        else:
+            print("Error: task_tab not found.")
+    
+    def update_validate_btn_visibility(self, index):
+        if self.validate_btn:
+            if index == 1:
+                self.validate_btn.hide()
+            elif index == 0:
+                self.validate_btn.show()
+
     def open_link_browser(self):
         link = self.link_submitted_input.text()
         if link and link != "No link available":
@@ -756,7 +771,7 @@ class MainApp:
                     SELECT task_name, task_requirement, priority_level, task_description, due_date_time, submitted_link, submitted_file
                     FROM Task_Storage
                     WHERE status = 'Completed - Not Validated'
-                    LIMIT %s, 1
+                    LIMIT 1 OFFSET %s
                 """
                 DB.mycursor.execute(query, (selected_row,))
                 result = DB.mycursor.fetchone()
@@ -789,7 +804,7 @@ class MainApp:
                         if self.link_submitted_label:
                             self.link_submitted_label.setText("File Submitted:")
                         if self.link_submitted_input:
-                            self.link_submitted_input.setText(submitted_file.name if hasattr(submitted_file, 'name') else (submitted_file if isinstance(submitted_file, str) else "No file submitted"))
+                            self.link_submitted_input.setText(submitted_file.name if hasattr(submitted_file, 'name') else (submitted_file if isinstance(submitted_file, str) else "Submitted File"))
                         if self.download_file_btn:
                             self.download_file_btn.show()
                             self.download_file_btn.clicked.connect(self.download_file)
@@ -862,14 +877,24 @@ class MainApp:
         if valid_result == QMessageBox.Yes:
             try:
                 # Update the task status in the database
-                update_query = """
-                    UPDATE Task_Storage
-                    print(f"Executing update query: {update_query} with validate_index: {validate_index}")  # Debugging log
-                    DB.mycursor.execute(update_query, ("Completed - Validated", validate_index))
+                # Fetch the task_name first to avoid subquery issues
+                fetch_task_query = """
+                    SELECT task_name
+                    FROM Task_Storage
                     WHERE status = 'Completed - Not Validated'
                     LIMIT %s, 1
                 """
-                DB.mycursor.execute(update_query, ("Completed - Validated", validate_index))
+                DB.mycursor.execute(fetch_task_query, (validate_index,))
+                task_name_result = DB.mycursor.fetchone()
+
+                if task_name_result:
+                    task_name = task_name_result[0]
+                    update_query = """
+                        UPDATE Task_Storage
+                        SET status = %s
+                        WHERE task_name = %s
+                    """
+                DB.mycursor.execute(update_query, ("Completed - Validated", task_name))
                 DB.conn.commit()
 
                 # Update the status in the completed task table
@@ -890,6 +915,7 @@ class MainApp:
                 error_msg_box.setWindowTitle("Database Error")
                 error_msg_box.setText(f"An error occurred while validating the task: {err.msg}")
                 error_msg_box.exec()
+        
         elif valid_result == QMessageBox.No:
             valid_msg_box.close()
             self.validate_task()
@@ -1593,44 +1619,57 @@ class MainApp:
                         if name_item:
                             new_task_assigned_to.add(name_item.text())
 
+                #Insert the new task directly into the database
                 self.assign_task_to_db(new_task_name, new_task_description, new_task_requirement, new_task_priority_level, new_task_due_date, new_task_due_time, new_task_assigned_to, new_task_status)
 
-                task_name_container.append(new_task_name)
-                task_requirement_container.append(new_task_requirement)
-                task_description_container.append(new_task_description)
-                task_priority_level_container.append(new_task_priority_level)
-                task_due_date_container.append(new_task_due_date)
-                task_due_time_container.append(new_task_due_time)
-                task_assigned_to_container.append(new_task_assigned_to)
-                task_status_container.append(new_task_status)
-
-                #Appear immediately on the tables
-
+                #Refresh the current task table
                 self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
-                self.currenttask_table.setColumnCount(6)
-                self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+                self.currenttask_table.setRowCount(0)
 
-                for i in range(len(task_name_container)):
-                    self.currenttask_table.insertRow(i)
-                    self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
-                    self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
-                    self.currenttask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
-                    self.currenttask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
-                    self.currenttask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
-                    self.currenttask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+                try:
+                    query = """
+                        SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                        FROM Task_Storage
+                    """
+                    DB.mycursor.execute(query)
+                    tasks_info = DB.mycursor.fetchall()
 
+                    self.currenttask_table.setColumnCount(6)
+                    self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+                    for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
+                        self.currenttask_table.insertRow(i)
+                        self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                        self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                        self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                        self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
+                        self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                        self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+                except mysql.connector.Error as err:
+                    QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing tasks: {err.msg}")
+
+                # Refresh the pending task table
                 self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
-                self.pendingtask_table.setColumnCount(6)
-                self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
-                
-                for i in range(len(task_name_container)):
-                    self.pendingtask_table.insertRow(i)
-                    self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
-                    self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
-                    self.pendingtask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
-                    self.pendingtask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
-                    self.pendingtask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
-                    self.pendingtask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+                self.pendingtask_table.setRowCount(0)
+
+                try:
+                    pending_tasks = [task for task in tasks_info if task[3] == "Pending"]
+
+                    self.pendingtask_table.setColumnCount(6)
+                    self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+                    for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(pending_tasks):
+                        self.pendingtask_table.insertRow(i)
+                        self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                        self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                        self.pendingtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                        self.pendingtask_table.setItem(i, 3, QTableWidgetItem(status))
+                        self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                        self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+                except mysql.connector.Error as err:
+                    QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing pending tasks: {err.msg}")
 
                 self.task_name_edit.setText("")
                 self.task_description_edit.setPlainText("")
@@ -1670,44 +1709,54 @@ class MainApp:
                     task_name = task_name_container[remove_index]
                     self.remove_task_from_db(task_name)
 
-                    del task_name_container[remove_index]
-                    del task_requirement_container[remove_index]
-                    del task_description_container[remove_index]
-                    del task_priority_level_container[remove_index]
-                    del task_due_date_container[remove_index]
-                    del task_due_time_container[remove_index]
-                    del task_assigned_to_container[remove_index]
-                    del task_status_container[remove_index]
+                    # Remove the task from the database
+                    task_name = self.pendingtask_table.item(remove_index, 0).text()
+                    self.remove_task_from_db(task_name)
 
-                    self.currenttask_table.removeRow(remove_index)
-                    self.pendingtask_table.removeRow(remove_index)
+                    # Refresh the current task table
+                    self.currenttask_table.setRowCount(0)
+                    try:
+                        query = """
+                            SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                            FROM Task_Storage
+                        """
+                        DB.mycursor.execute(query)
+                        tasks_info = DB.mycursor.fetchall()
 
-                    #Appear changes to the tables
-                    self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
-                    self.currenttask_table.setColumnCount(6)
-                    self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+                        self.currenttask_table.setColumnCount(6)
+                        self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
-                    for i in range(len(task_name_container)):
-                        self.currenttask_table.insertRow(i)
-                        self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
-                        self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
-                        self.currenttask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
-                        self.currenttask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
-                        self.currenttask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
-                        self.currenttask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+                        for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
+                            self.currenttask_table.insertRow(i)
+                            self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                            self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                            self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                            self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
+                            self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                            self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
-                    self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
-                    self.pendingtask_table.setColumnCount(6)
-                    self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
-                    
-                    for i in range(len(task_name_container)):
-                        self.pendingtask_table.insertRow(i)
-                        self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name_container[i]))
-                        self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement_container[i]))
-                        self.pendingtask_table.setItem(i, 2, QTableWidgetItem(task_priority_level_container[i]))
-                        self.pendingtask_table.setItem(i, 3, QTableWidgetItem(task_status_container[i]))
-                        self.pendingtask_table.setItem(i, 4, QTableWidgetItem(", ".join(task_assigned_to_container[i]) if isinstance(task_assigned_to_container[i], set) else task_assigned_to_container[i]))
-                        self.pendingtask_table.setItem(i, 5, QTableWidgetItem(task_due_date_container[i] + " " + task_due_time_container[i]))
+                    except mysql.connector.Error as err:
+                        QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing tasks: {err.msg}")
+
+                    # Refresh the pending task table
+                    self.pendingtask_table.setRowCount(0)
+                    try:
+                        pending_tasks = [task for task in tasks_info if task[3] == "Pending"]
+
+                        self.pendingtask_table.setColumnCount(6)
+                        self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+                        for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(pending_tasks):
+                            self.pendingtask_table.insertRow(i)
+                            self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                            self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                            self.pendingtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                            self.pendingtask_table.setItem(i, 3, QTableWidgetItem(status))
+                            self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                            self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+                    except mysql.connector.Error as err:
+                        QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing pending tasks: {err.msg}")
 
                     remove_task_msg_box.close()
 
@@ -1845,6 +1894,15 @@ class MainApp:
 
     def confirm_submit_task_to_db(self, submit_index):
         if self.link_requirement_edit and self.link_requirement_edit.text().strip():
+            # Check if the link starts with "https://"
+            if not self.link_requirement_edit.text().startswith("https://"):
+                invalid_link_msg_box = QMessageBox()
+                invalid_link_msg_box.setIcon(QMessageBox.Warning)
+                invalid_link_msg_box.setWindowTitle("Invalid Link")
+                invalid_link_msg_box.setText("The link must start with 'https://'. Please enter a valid link.")
+                invalid_link_msg_box.exec()
+                return
+
             # Message box
             confirm_msg_box = QMessageBox()
             confirm_msg_box.setIcon(QMessageBox.Warning)
@@ -1898,7 +1956,7 @@ class MainApp:
 
             elif submit_result == QMessageBox.No:
                 confirm_msg_box.close()
-                self.submit_task()
+                return
 
         else:
             no_link_msg_box = QMessageBox()
@@ -1906,7 +1964,6 @@ class MainApp:
             no_link_msg_box.setWindowTitle("No Link Entered")
             no_link_msg_box.setText("Please enter the link you are going to submit.")
             no_link_msg_box.exec()
-            self.submit_task()
             return
 
     def submit_file_task(self):
@@ -2046,22 +2103,33 @@ class MainApp:
 
     def create_foreign_key_relationship(self):
         try:
-            # Add foreign key constraints to link Task_Storage and Users_Info tables
-            add_foreign_key_query = """
-                ALTER TABLE Task_Storage
-                ADD CONSTRAINT fk_user_id
-                FOREIGN KEY (user_id)
-                REFERENCES Users_Info(user_id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE;
+            # Ensure the foreign key constraint is added only if it doesn't already exist
+            check_foreign_key_query = """
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+                WHERE TABLE_NAME = 'Task_Storage' AND CONSTRAINT_NAME = 'fk_user_id';
             """
-            DB.mycursor.execute(add_foreign_key_query)
-            DB.conn.commit()
-            print("Foreign key relationship successfully created.")
+            DB.mycursor.execute(check_foreign_key_query)
+            result = DB.mycursor.fetchone()
+
+            if not result:
+                # Add foreign key constraints to link Task_Storage and Users_Info tables
+                add_foreign_key_query = """
+                    ALTER TABLE Task_Storage
+                    ADD CONSTRAINT fk_user_id
+                    FOREIGN KEY (user_id)
+                    REFERENCES Users_Info(user_id)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE;
+                """
+                DB.mycursor.execute(add_foreign_key_query)
+                DB.conn.commit()
+                print("Foreign key relationship successfully created.")
+            else:
+                print("Foreign key relationship already exists.")
 
         except mysql.connector.Error as err:
             print(f"An error occurred while creating the foreign key relationship: {err.msg}")
-
 
     def show_join_group(self): # To be removed
         self.join_group_window.show()
