@@ -529,7 +529,7 @@ class MainApp:
         dashboard_files = {
             "Supervisor": "dashboard_updated.ui",
             "Manager": "dashboard_manager_updated.ui",
-            "Employee": "dashboard_employee_new.ui"
+            "Employee": "dashboard_employee_updated.ui"
         }
 
         try:
@@ -1864,9 +1864,9 @@ class MainApp:
             SELECT task_name, task_requirement, priority_level, task_description, due_date_time
             FROM Task_Storage
             WHERE status = 'Pending'
-            LIMIT %s, 1
+             LIMIT %s, 1
             """
-            DB.mycursor.execute(query, (submit_index,))
+            DB.mycursor.execute(query, (int(submit_index),))
             result = DB.mycursor.fetchone()
 
             if result:
@@ -1894,6 +1894,7 @@ class MainApp:
 
     def confirm_submit_task_to_db(self, submit_index):
         if self.link_requirement_edit and self.link_requirement_edit.text().strip():
+
             # Check if the link starts with "https://"
             if not self.link_requirement_edit.text().startswith("https://"):
                 invalid_link_msg_box = QMessageBox()
@@ -1924,6 +1925,12 @@ class MainApp:
                         SET submitted_link = %s, status = %s, submitted_date_time = NOW()
                         WHERE task_name = %s
                     """
+                    # Ensure task_name_container is defined and populated
+                    global task_name_container
+                    if 'task_name_container' not in globals() or not task_name_container:
+                        DB.mycursor.execute("SELECT task_name FROM Task_Storage")
+                        task_name_container = [task[0] for task in DB.mycursor.fetchall()]
+
                     DB.mycursor.execute(update_query, (
                         self.link_requirement_edit.text(),
                         "Completed - Not Validated",
@@ -2058,8 +2065,14 @@ class MainApp:
                         SET submitted_file = %s, status = %s, submitted_date_time = NOW()
                         WHERE task_name = %s
                     """
+                    # Ensure task_name_container is defined and populated
+                    global task_name_container
+                    if 'task_name_container' not in globals() or not task_name_container:
+                        DB.mycursor.execute("SELECT task_name FROM Task_Storage")
+                        task_name_container = [task[0] for task in DB.mycursor.fetchall()]
+
                     DB.mycursor.execute(update_query, (
-                        file_data,
+                        self.link_requirement_edit.text(),
                         "Completed - Not Validated",
                         task_name_container[submit_index]
                     ))
