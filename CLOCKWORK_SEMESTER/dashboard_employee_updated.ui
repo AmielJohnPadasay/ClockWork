@@ -202,7 +202,7 @@
               <enum>QFrame::Shape::Box</enum>
              </property>
              <property name="text">
-              <string>Pie Chart</string>
+              <string>Donut Chart</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignmentFlag::AlignCenter</set>

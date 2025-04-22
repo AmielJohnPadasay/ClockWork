@@ -1,17 +1,15 @@
 import sys
 import mysql.connector
 import datetime
-import webbrowser
-from datetime import datetime
-import datetime
 import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget,
                                QTableWidgetItem, QRadioButton, QDateEdit, QTabWidget, QTimeEdit, QTextEdit, QTextBrowser)
-from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog
+from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog, QCalendarWidget
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, QDate
 from PySide6.QtWidgets import QMessageBox
+from PySide6.QtGui import QColor
 
 email = "a@gmail.com"
 password = "22222222"
@@ -116,7 +114,7 @@ class Clockwork_Database:
         self.conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="amiel_2004"  # Pads_2004120
+            password="Pads_2004120"  # Pads_2004120 amiel_2004
         )
         self.mycursor = self.conn.cursor()
         self.initialize_database()
@@ -444,7 +442,6 @@ class MainApp:
         self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.register_fingerprint_window.hide)
-            return
 
     def store_into_database(self):
         self.register_fingerprint_window.hide()
@@ -519,7 +516,7 @@ class MainApp:
         account_created_msg_box.exec()
 
         self.create_account_window.hide()
-        self.setup_login_page()
+        self.setup_login_page() # The reason for recursive message box?
 
     def load_dashboard(self):
         self.email = self.email_lineedit.text()
@@ -704,6 +701,19 @@ class MainApp:
         if self.user_roles_btn:
             self.user_roles_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(3))
 
+        self.number_tasks_label = self.current_dashboard.findChild(QLabel, "number_tasks_label")
+        if self.number_tasks_label:
+            self.update_task_count()
+
+        self.task_calendar = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar_2")
+        if self.task_calendar:
+            self.color_code_calendar_by_priority()
+
+        self.task_calendar_2 = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar")
+        if self.task_calendar_2:
+            self.task_calendar_2.selectionChanged.connect(self.show_tasks_for_selected_date)
+            self.color_code_calendar_by_priority_2()
+
         self.change_role_btn = self.current_dashboard.findChild(QWidget, "change_role_btn")
         if self.change_role_btn:
             self.change_role_btn.clicked.connect(self.show_select_role_with_data)
@@ -727,6 +737,18 @@ class MainApp:
             self.update_validate_btn_visibility(self.task_tab.currentIndex())
         else:
             print("Error: task_tab not found.")
+
+    def update_task_count(self):
+        try:
+            query = "SELECT COUNT(*) FROM Task_Storage"
+            DB.mycursor.execute(query)
+            result = DB.mycursor.fetchone()
+            if result:
+                self.number_tasks_label.setText(f"Total Tasks: {result[0]}")
+            else:
+                self.number_tasks_label.setText("Total Tasks: 0")
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching task count: {err.msg}")
     
     def update_validate_btn_visibility(self, index):
         if self.validate_btn:
@@ -1365,6 +1387,33 @@ class MainApp:
                 self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
                 self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
+        # Fetch data from Task_Storage table for current and pending tasks
+        try:
+            query = """
+                SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                FROM Task_Storage
+            """
+            DB.mycursor.execute(query)
+            tasks_info = DB.mycursor.fetchall()
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching task data: {err.msg}")
+            return
+
+        self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
+        if self.currenttask_table:
+            current_tasks = [task for task in tasks_info if task[3] in ["Pending", "Completed - Not Validated"]]  # Filter tasks with status "Pending"
+            self.currenttask_table.setRowCount(len(current_tasks))
+            self.currenttask_table.setColumnCount(6)
+            self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+            for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(current_tasks):
+                self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
+                self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
         # Fetch data from Task_Storage table for completed tasks
         try:
             query = """
@@ -1406,6 +1455,19 @@ class MainApp:
         if self.calendar_btn_manager:
             self.calendar_btn_manager.clicked.connect(lambda: self.stacked_Manager.setCurrentIndex(2))
 
+        self.number_tasks_label = self.current_dashboard.findChild(QLabel, "number_tasks_label")
+        if self.number_tasks_label:
+            self.update_task_count()
+
+        self.task_calendar = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar_2")
+        if self.task_calendar:
+            self.color_code_calendar_by_priority()
+
+        self.task_calendar_2 = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar")
+        if self.task_calendar_2:
+            self.task_calendar_2.selectionChanged.connect(self.show_tasks_for_selected_date)
+            self.color_code_calendar_by_priority_2()
+
         # Assign Task
         self.assign_task_button = self.current_dashboard.findChild(QWidget, "assigntask_btn")
         if self.assign_task_button:
@@ -1423,6 +1485,105 @@ class MainApp:
         self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
+
+    def color_code_calendar_by_priority(self):
+        try:
+            # Fetch all tasks with their due dates and priority levels
+            query = """
+            SELECT due_date_time, priority_level
+            FROM Task_Storage
+            """
+            DB.mycursor.execute(query)
+            tasks_info = DB.mycursor.fetchall()
+
+            # Iterate through tasks and color-code the calendar
+            for due_date_time, priority_level in tasks_info:
+                if due_date_time:
+                    due_date = due_date_time.date()
+                    calendar_date = QDate(due_date.year, due_date.month, due_date.day)
+
+                # Determine the color based on priority level
+                if priority_level.lower() == "low":
+                    color = QColor("green")
+                elif priority_level.lower() == "medium":
+                    color = QColor("yellow")
+                elif priority_level.lower() == "high":
+                    color = QColor("red")
+                else:
+                    color = QColor("white")  # Default color for unknown priority
+
+                # Highlight the date on the calendar
+                format = self.task_calendar.dateTextFormat(calendar_date)
+                format.setBackground(color)
+                self.task_calendar.setDateTextFormat(calendar_date, format)
+
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching tasks: {err.msg}")
+
+    def color_code_calendar_by_priority_2(self):
+        try:
+            # Fetch all tasks with their due dates and priority levels
+            query = """
+            SELECT due_date_time, priority_level
+            FROM Task_Storage
+            """
+            DB.mycursor.execute(query)
+            tasks_info = DB.mycursor.fetchall()
+
+            # Iterate through tasks and color-code the calendar
+            for due_date_time, priority_level in tasks_info:
+                if due_date_time:
+                    due_date = due_date_time.date()
+                    calendar_date = QDate(due_date.year, due_date.month, due_date.day)
+
+                # Determine the color based on priority level
+                if priority_level.lower() == "low":
+                    color = QColor("green")
+                elif priority_level.lower() == "medium":
+                    color = QColor("yellow")
+                elif priority_level.lower() == "high":
+                    color = QColor("red")
+                else:
+                    color = QColor("white")  # Default color for unknown priority
+
+                # Highlight the date on the calendar
+                format = self.task_calendar_2.dateTextFormat(calendar_date)
+                format.setBackground(color)
+                self.task_calendar_2.setDateTextFormat(calendar_date, format)
+
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching tasks: {err.msg}")
+
+    def show_tasks_for_selected_date(self):
+        selected_date = self.task_calendar_2.selectedDate().toString("yyyy-MM-dd")
+        try:
+            # Fetch tasks for the selected date from the database
+            query = """
+            SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+            FROM Task_Storage
+            WHERE DATE(due_date_time) = %s
+            """
+            DB.mycursor.execute(query, (selected_date,))
+            tasks_info = DB.mycursor.fetchall()
+
+            # Find the table widget for displaying tasks
+            self.calendar_task_table = self.current_dashboard.findChild(QTableWidget, "calendartask_table")
+            if self.calendar_task_table:
+                self.calendar_task_table.setRowCount(len(tasks_info))
+                self.calendar_task_table.setColumnCount(6)
+                self.calendar_task_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+            # Populate the table with tasks for the selected date
+            for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
+                self.calendar_task_table.setItem(i, 0, QTableWidgetItem(task_name))
+                self.calendar_task_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                self.calendar_task_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                self.calendar_task_table.setItem(i, 3, QTableWidgetItem(status))
+                self.calendar_task_table.setItem(i, 4, QTableWidgetItem(group_members))
+                self.calendar_task_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching tasks: {err.msg}")
 
     def show_assign_task(self): # Next function to be created
         global email_container
@@ -1706,9 +1867,6 @@ class MainApp:
                 remove_result = remove_task_msg_box.exec()
 
                 if remove_result == QMessageBox.Yes:
-                    task_name = task_name_container[remove_index]
-                    self.remove_task_from_db(task_name)
-
                     # Remove the task from the database
                     task_name = self.pendingtask_table.item(remove_index, 0).text()
                     self.remove_task_from_db(task_name)
@@ -1817,6 +1975,14 @@ class MainApp:
         self.calendar_btn_employee = self.current_dashboard.findChild(QWidget, "calendar_btn")
         if self.calendar_btn_employee:
             self.calendar_btn_employee.clicked.connect(lambda: self.stacked_Employee.setCurrentIndex(1))
+
+        self.task_calendar = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar_2")
+        if self.task_calendar:
+            self.color_code_calendar_by_priority()
+
+        self.task_calendar_2 = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar")
+        if self.task_calendar_2:
+            self.color_code_calendar_by_priority_2()
 
         self.submit_task_button = self.current_dashboard.findChild(QWidget, "submit_task_btn")
         if self.submit_task_button:
