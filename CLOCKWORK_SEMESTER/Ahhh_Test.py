@@ -117,7 +117,7 @@ class Clockwork_Database:
         self.conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="amiel_2004"  # Pads_2004120 amiel_2004
+            password="Pads_2004120"  # Pads_2004120 amiel_2004
         )
         self.mycursor = self.conn.cursor()
         self.initialize_database()
@@ -450,6 +450,7 @@ class MainApp:
        
     def register_fingerprint(self):
         try:
+
             if self.register_fingerprint_window:
                 self.register_fingerprint_window.show()
             else:
@@ -459,76 +460,86 @@ class MainApp:
             self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
             if self.skip_btn:
                 self.skip_btn.clicked.connect(self.store_into_database)
-
-            self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
-            
-            try:
-                from pyzkfp import ZKFP2  # Ensure ZKFP2 is imported
-                fingerprint_scanner = ZKFP2()
-                fingerprint_scanner.initialize()
-
-            except ImportError:
-                    QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
-                    self.register_fingerprint_window.hide()
-                    return
-                
-            except Exception as e:
-                QMessageBox.critical(None, "Error", f"Failed to initialize fingerprint scanner: {str(e)}")
-                self.register_fingerprint_window.hide()
+            else:
+                QMessageBox.warning(None, "Error", "Skip button not found in the fingerprint window.")
                 return
 
-            # Start fingerprint registration
-            fingerprint_scanner.logger.info("Starting fingerprint registration...")
-            fingerprint_scanner.register = True
-            fingerprint_scanner.listenToFingerprints()
+            self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
+            if not self.cancel_btn:
+                QMessageBox.warning(None, "Error", "Cancel button not found in the fingerprint window.")
+                return
 
-            # Add a progress bar to the GUI for fingerprint registration
+            try:
+                from pyzkfp import ZKFP2
+                self.fingerprint_scanner = ZKFP2()
+                self.fingerprint_scanner.Init()
+                self.fingerprint_scanner.OpenDevice(0)
+                self.fingerprint_scanner.Light("green")
+
+                self.templates = []
+                self.register = True
+
+            except ImportError:
+                QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
+                self.register_fingerprint_window.hide()
+                return
+            
             self.progress_bar = self.register_fingerprint_window.findChild(QProgressBar, "progress_bar")
             if self.progress_bar:
                 self.progress_bar.setValue(0)
-                self.progress_bar.setMaximum(3)  # Expecting 3 templates for registration
-
-            # Wait for registration to complete
-            while fingerprint_scanner.register:
-
-                time.sleep(0.1)  # Use time.sleep instead of undefined sleep
-
-                try:
-                    regTemp = fingerprint_scanner.zkfp2.DBMerge(*fingerprint_scanner.templates)
-                    blob_image = fingerprint_scanner.zkfp2.Blob2Base64String(regTemp)
-                except AttributeError:
-                    QMessageBox.critical(None, "Error", "Fingerprint scanner methods are not available.")
-                    self.register_fingerprint_window.hide()
+                self.progress_bar.setMaximum(3)
+            else:
+                while self.register and self.fingerprint_scanner:
                     return
-                self.progress_bar.setValue(len(fingerprint_scanner.templates))
 
-                # Ensure templates are available for merging
-                if len(fingerprint_scanner.templates) == 3:
-                    regTemp = fingerprint_scanner.zkfp2.DBMerge(*fingerprint_scanner.templates)
-                    blob_image = fingerprint_scanner.zkfp2.Blob2Base64String(regTemp)
+            self.progress_bar = self.register_fingerprint_window.findChild(QProgressBar, "progress_bar")
+            if self.progress_bar:
+                self.progress_bar.setValue(0)
+                self.progress_bar.setMaximum(3)
 
-                    # Store the fingerprint BLOB in the database
-                    query = """
-                        UPDATE Users_Info
-                        SET fingerprint = %s
-                        WHERE email = %s
-                    """
-                    email = self.get_current_user_email()  # Replace with actual method to get the current user's email
-                    DB.mycursor.execute(query, (blob_image, email))
-                    DB.conn.commit()
+            while self.register:
+                try:
+                    if not self.fingerprint_scanner:
+                        QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                        self.register_fingerprint_window.hide()
+                        return
 
-                    QMessageBox.information(None, "Success", "Fingerprint registered successfully!")
-                    
-                    # Trigger account creation confirmation
-                    self.store_into_database()
-                    break  # Exit the loop after successful registration
+                    capture = self.fingerprint_scanner.AcquireFingerprint()
+                    if capture:
+                        tmp, _ = capture
+                        print(f"Fingerprint captured: {tmp}")  # Debugging log
 
-            # Handle unsuccessful registration outside the loop
-            if not fingerprint_scanner.register or len(fingerprint_scanner.templates) < 3:
-                QMessageBox.warning(None, "Error", "Fingerprint registration failed. Please try again.")
-                
+                        if len(self.templates) < 3:
+
+                            if not self.templates or self.fingerprint_scanner.DBMatch(self.templates[-1], tmp) > 0:
+                                self.fingerprint_scanner.Light("green")
+                                self.templates.append(tmp)
+
+                                try:
+                                    query = """
+                                            UPDATE Users_Info
+                                            SET fingerprint = %s
+                                            WHERE email = %s
+                                        """
+                                    email = self.get_current_user_email()
+                                    fingerprint_blob = tmp  # Assuming 'tmp' is the fingerprint data
+                                    DB.mycursor.execute(query, (fingerprint_blob, email))
+                                    DB.conn.commit()
+                                    print(f"Fingerprint saved for email: {email}")  # Debugging log
+                                except mysql.connector.Error as db_err:
+                                    QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
+
+                except mysql.connector.Error as db_err:
+                        QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
+                        self.register_fingerprint_window.hide()
+                        return
+                                
         except Exception as e:
-            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint registration: {str(e)}")
+                print(f"Error during fingerprint registration: {str(e)}")  # Debugging log
+                QMessageBox.critical(None, "Error", f"An error occurred during fingerprint registration: {str(e)}")
+                self.register_fingerprint_window.hide()
+                return
+
 
     def get_current_user_email(self):
         # Retrieve the current user's email from the application context
@@ -1104,6 +1115,10 @@ class MainApp:
         global middle_initial_container
 
         self.profile_window.show()
+
+        self.register_fingerprint_btn = self.profile_window.findChild(QPushButton, "register_fingerprint_btn")
+        if self.register_fingerprint_btn:
+            self.register_fingerprint_btn.clicked.connect(self.register_fingerprint)
 
         self.edit_profile_btn = self.profile_window.findChild(QWidget, "edit_profile_btn")
         if self.edit_profile_btn:
