@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox,
                                QTextEdit, QTextBrowser, QProgressBar)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog, QCalendarWidget
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile, Qt, QDate
+from PySide6.QtCore import QFile, Qt, QDate, QTimer
 from PySide6.QtWidgets import QMessageBox, QTableWidgetSelectionRange
 from PySide6.QtGui import QColor
 from pyzkfp import ZKFP2
@@ -293,13 +293,15 @@ class MainApp:
         self.log_in_stacked = self.login_window.findChild(QStackedWidget, "log_in_stacked")
         self.log_in_stacked.setCurrentIndex(1)
 
+        self.log_in_with_fingerprint()
+
         self.log_in_credentials_btn = self.login_window.findChild(QWidget, "log_in_credentials_btn")
         if self.log_in_credentials_btn:
             self.log_in_credentials_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(0))
 
         self.log_in_fingerprint_btn = self.login_window.findChild(QWidget, "log_in_fingerprint_btn")
         if self.log_in_fingerprint_btn:
-            self.log_in_fingerprint_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(1))
+            self.log_in_fingerprint_btn.clicked.connect(self.log_in_with_fingerprint)
 
         self.email_lineedit = self.login_window.findChild(QLineEdit, "email_lineEdit")
 
@@ -317,6 +319,58 @@ class MainApp:
         # Ensure the login failed message box does not appear on program start
         self.email_lineedit.textChanged.connect(lambda: None)
         self.password_lineedit.textChanged.connect(lambda: None)
+
+    def log_in_with_fingerprint(self):
+        try:
+            self.log_in_stacked.setCurrentIndex(1)
+            self.fingerprint_scanner = ZKFP2()
+            self.fingerprint_scanner.Init()
+            self.fingerprint_scanner.OpenDevice(0)
+            self.fingerprint_scanner.Light("green")
+
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.check_fingerprint_for_login)
+            self.timer.start(100)  # Check every 100 milliseconds
+
+        except ImportError:
+            QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
+            return
+        except Exception as e:
+            QMessageBox.critical(None, "Error", f"An error occurred while initializing the fingerprint scanner: {str(e)}")
+            return
+
+    def check_fingerprint_for_login(self):
+        try:
+            capture = self.fingerprint_scanner.AcquireFingerprint()
+            if capture:
+                tmp, _ = capture
+                print(f"Fingerprint captured: {tmp}")  # Debugging log
+
+                # Fetch all fingerprints from the database
+                query = "SELECT email, password, fingerprint FROM Users_Info WHERE fingerprint IS NOT NULL"
+                DB.mycursor.execute(query)
+                users_fingerprints = DB.mycursor.fetchall()
+
+                for email, password, fingerprint_blob in users_fingerprints:
+                    if self.fingerprint_scanner.DBMatch(list(fingerprint_blob), tmp) > 0:
+                        self.timer.stop()
+                        self.fingerprint_scanner.CloseDevice()
+                        self.fingerprint_scanner.Terminate()
+                        QMessageBox.information(None, "Login Successful", f"Welcome, {email}!")
+                        self.email_lineedit.setText(email)
+                        self.password_lineedit.setText(password)
+                        self.load_dashboard()
+                        return
+
+                QMessageBox.warning(None, "Login Failed", "Fingerprint not recognized. Please try again.")
+            
+        except Exception as e:
+            print(f"Error during fingerprint login: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint login: {str(e)}")
+            self.timer.stop()
+            self.fingerprint_scanner.CloseDevice()
+            self.fingerprint_scanner.Terminate()
+            return
 
 
     def setup_create_account_page(self):
@@ -368,6 +422,17 @@ class MainApp:
         self.confirm_password_edit = self.create_account_window.findChild(QLineEdit, "confirm_password_edit")
         self.confirm_password_edit.setEchoMode(QLineEdit.Password)
         self.confirm_password_edit.setMaxLength(255)
+
+        #Ensure that the create account edit credentials are empty
+
+        self.email_edit.setText("")
+        self.last_name_edit.setText("")
+        self.first_name_edit.setText("")
+        self.middle_init_edit.setText("")
+        self.suffix_combobox.setCurrentIndex(0)
+        self.password_edit.setText("")
+        self.confirm_password_edit.setText("")
+        self.birthdate_edit.setDate(datetime.date.today())
 
         self.change_into_log_in_button = self.create_account_window.findChild(QWidget, "change_into_log_in_button")
         if self.change_into_log_in_button:
@@ -446,11 +511,14 @@ class MainApp:
             return
 
         # If all validations pass, store the account into the database
-        self.register_fingerprint()
+        self.store_into_database()
+
+    def open_login(self):
+        self.register_fingerprint_window.hide()
+        self.show_login()
        
     def register_fingerprint(self):
         try:
-
             if self.register_fingerprint_window:
                 self.register_fingerprint_window.show()
             else:
@@ -459,13 +527,15 @@ class MainApp:
 
             self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
             if self.skip_btn:
-                self.skip_btn.clicked.connect(self.store_into_database)
+                self.skip_btn.clicked.connect(self.open_login)
             else:
                 QMessageBox.warning(None, "Error", "Skip button not found in the fingerprint window.")
                 return
 
             self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
-            if not self.cancel_btn:
+            if self.cancel_btn:
+                self.cancel_btn.clicked.connect(self.open_login)
+            else:
                 QMessageBox.warning(None, "Error", "Cancel button not found in the fingerprint window.")
                 return
 
@@ -488,63 +558,83 @@ class MainApp:
             if self.progress_bar:
                 self.progress_bar.setValue(0)
                 self.progress_bar.setMaximum(3)
-            else:
-                while self.register and self.fingerprint_scanner:
-                    return
 
-            self.progress_bar = self.register_fingerprint_window.findChild(QProgressBar, "progress_bar")
-            if self.progress_bar:
-                self.progress_bar.setValue(0)
-                self.progress_bar.setMaximum(3)
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.check_fingerprint_scanner)
+            self.timer.start(100)  # Check every 100 milliseconds
 
-            while self.register:
-                try:
-                    if not self.fingerprint_scanner:
-                        QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
-                        self.register_fingerprint_window.hide()
-                        return
-
-                    capture = self.fingerprint_scanner.AcquireFingerprint()
-                    if capture:
-                        tmp, _ = capture
-                        print(f"Fingerprint captured: {tmp}")  # Debugging log
-
-                        if len(self.templates) < 3:
-
-                            if not self.templates or self.fingerprint_scanner.DBMatch(self.templates[-1], tmp) > 0:
-                                self.fingerprint_scanner.Light("green")
-                                self.templates.append(tmp)
-
-                                try:
-                                    query = """
+        except Exception as e:
+            print(f"Error during fingerprint registration: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint registration: {str(e)}")
+            self.register_fingerprint_window.hide()
+            self.open_login()
+            return
+        
+    def check_fingerprint_scanner(self):
+        try:
+            self.email = self.email_edit.text()
+            if not self.fingerprint_scanner:
+                QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                self.register_fingerprint_window.hide()
+                self.timer.stop()
+                return
+        
+            capture = self.fingerprint_scanner.AcquireFingerprint()
+            if capture:
+                tmp, _ = capture
+                if tmp:
+                    print(f"Fingerprint captured: {tmp}")  # Debugging log
+                    # Add logic to process the fingerprint data
+                    if not self.templates or all(self.fingerprint_scanner.DBMatch(template, tmp) <= 0 for template in self.templates):
+                        self.templates.append(tmp)
+                        print(f"Fingerprint template added. Total templates: {len(self.templates)}")
+                        if len(self.templates) >= 3:
+                            self.timer.stop()
+                            QMessageBox.information(None, "Success", "Fingerprint registration completed successfully.")
+                            self.register_fingerprint_window.hide()
+                            return tmp  # Return the local variable 'tmp' to make it accessible
+                else:
+                    print("No valid fingerprint data captured.")
+        
+                if len(self.templates) < 3:
+                    if not self.templates or self.fingerprint_scanner.DBMatch(self.templates[-1], tmp) > 0:
+                        self.fingerprint_scanner.Light("green")
+                        self.templates.append(tmp)
+        
+                        # Update progress bar in the GUI
+                        if self.progress_bar:
+                            self.progress_bar.setValue(len(self.templates))
+        
+                            try:
+                                query = """
                                             UPDATE Users_Info
                                             SET fingerprint = %s
                                             WHERE email = %s
-                                        """
-                                    email = self.get_current_user_email()
-                                    fingerprint_blob = tmp  # Assuming 'tmp' is the fingerprint data
-                                    DB.mycursor.execute(query, (fingerprint_blob, email))
+                                    """
+                                fingerprint_blob = bytes(tmp)  # Convert 'tmp' to binary format
+                                if self.email:
+                                    DB.mycursor.execute(query, (fingerprint_blob, self.email))
                                     DB.conn.commit()
-                                    print(f"Fingerprint saved for email: {email}")  # Debugging log
-                                except mysql.connector.Error as db_err:
-                                    QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
-
-                except mysql.connector.Error as db_err:
-                        QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
-                        self.register_fingerprint_window.hide()
-                        return
-                                
+                                else:
+                                    print("Error: Email is not defined or not set.")
+        
+                            except mysql.connector.Error as db_err:
+                                QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
+        
+                        # Stop the timer and complete registration if 3 fingerprints are captured
+                        if len(self.templates) >= 3:
+                            self.timer.stop()
+                            QMessageBox.information(None, "Success", "Fingerprint registration completed successfully.")
+                            self.register_fingerprint_window.hide()
+                            self.open_login()
+        
         except Exception as e:
                 print(f"Error during fingerprint registration: {str(e)}")  # Debugging log
                 QMessageBox.critical(None, "Error", f"An error occurred during fingerprint registration: {str(e)}")
                 self.register_fingerprint_window.hide()
+                self.timer.stop()
+                self.open_login()
                 return
-
-
-    def get_current_user_email(self):
-        # Retrieve the current user's email from the application context
-        # Replace this with the actual logic to fetch the logged-in user's email
-        return self.email if hasattr(self, 'email') else "unknown@example.com"
 
     def store_into_database(self):
         self.register_fingerprint_window.hide()
@@ -601,25 +691,15 @@ class MainApp:
             error_msg_box.setText(f"An error occurred while storing the account: {err.msg}")
             error_msg_box.exec()
 
-        #Ensure that the create account edit credentials are empty
-
-        self.email_edit.setText("")
-        self.last_name_edit.setText("")
-        self.first_name_edit.setText("")
-        self.middle_init_edit.setText("")
-        self.suffix_combobox.setCurrentIndex(0)
-        self.password_edit.setText("")
-        self.confirm_password_edit.setText("")
-        self.birthdate_edit.setDate(datetime.date.today())
-
         account_created_msg_box = QMessageBox()
         account_created_msg_box.setIcon(QMessageBox.Information)
         account_created_msg_box.setWindowTitle("Account Created")
         account_created_msg_box.setText("Account created successfully!")
         account_created_msg_box.exec()
 
-        self.create_account_window.hide()
-        self.setup_login_page() # The reason for recursive message box?
+        self.register_fingerprint()
+
+        self.create_account_window.hide() # The reason for recursive message box?
 
     def load_dashboard(self):
         self.email = self.email_lineedit.text()
@@ -1118,7 +1198,8 @@ class MainApp:
 
         self.register_fingerprint_btn = self.profile_window.findChild(QPushButton, "register_fingerprint_btn")
         if self.register_fingerprint_btn:
-            self.register_fingerprint_btn.clicked.connect(self.register_fingerprint)
+            self.register_fingerprint_btn.setText("Change Fingerprint")
+            self.register_fingerprint_btn.clicked.connect(self.change_fingerprint)
 
         self.edit_profile_btn = self.profile_window.findChild(QWidget, "edit_profile_btn")
         if self.edit_profile_btn:
@@ -1127,71 +1208,52 @@ class MainApp:
         # Make the labels have their name, role, email, sex and birthdate according to their index
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
-        if self.email in email_container and self.password in password_container:    
-            index = email_container.index(self.email)
 
-            self.name_label = self.profile_window.findChild(QLabel, "name_label")
-            if self.name_label:
-                self.name_label.setText((f"Name: {first_name_container[index]} {middle_initial_container[index]} {last_name_container[index]} {suffix_container[index]}"))
+        try:
+            # Query the database to get the user's credentials
+            query = """
+                SELECT first_name, last_name, middle_initial, suffix, role, sex, birthdate, email
+                FROM Users_Info
+                WHERE email = %s AND password = %s
+            """
+            DB.mycursor.execute(query, (self.email, self.password))
+            result = DB.mycursor.fetchone()
 
-            self.role_label = self.profile_window.findChild(QLabel, "role_label")
-            if self.role_label:
-                self.role_label.setText((f"Role: {role_container[index]}"))
+            if result:
+                first_name, last_name, middle_initial, suffix, role, sex, birthdate, email = result
 
-            self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
-            if self.age_and_sex_label:
-                self.age_and_sex_label.setText((f"Age: {self.calculate_age(birthdate_container[index])} years old\n\nSex: {s_container[index]}"))
-            
-            self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
-            if self.email_label:
-                self.email_label.setText((f"{email_container[index]}"))
-
-            self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
-            if self.birthdate_label:
-                self.birthdate_label.setText((f"{birthdate_container[index]}"))
-
-            try:
-                # Query the database to get the user's credentials
-                query = """
-                    SELECT first_name, last_name, middle_initial, suffix, role, sex, birthdate, email
-                    FROM Users_Info
-                    WHERE email = %s
-                    """
-                DB.mycursor.execute(query, (self.email,))
-                result = DB.mycursor.fetchone()
-
-                if result:
-                    first_name, last_name, middle_initial, suffix, role, sex, birthdate, email = result
-                    self.name_label = self.profile_window.findChild(QLabel, "name_label")
+                self.name_label = self.profile_window.findChild(QLabel, "name_label")
                 if self.name_label:
-                    self.name_label.setText(f"Name: {first_name} {middle_initial} {last_name} {suffix}")
-                    self.role_label = self.profile_window.findChild(QLabel, "role_label")
+                    self.name_label.setText(f"Name: {first_name} {middle_initial or ''} {last_name} {suffix or ''}")
+
+                self.role_label = self.profile_window.findChild(QLabel, "role_label")
                 if self.role_label:
                     self.role_label.setText(f"Role: {role}")
-                    self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
+
+                self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
                 if self.age_and_sex_label:
                     self.age_and_sex_label.setText(f"Age: {self.calculate_age(birthdate)} years old\n\nSex: {sex}")
-                    self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
+
+                self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
                 if self.email_label:
                     self.email_label.setText(email)
-                    self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
+
+                self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
                 if self.birthdate_label:
                     self.birthdate_label.setText(str(birthdate))
-
-                else:
-                    error_msg_box = QMessageBox()
-                    error_msg_box.setIcon(QMessageBox.Warning)
-                    error_msg_box.setWindowTitle("Error")
-                    error_msg_box.setText("User credentials not found in the database.")
-                    error_msg_box.exec()
-
-            except mysql.connector.Error as err:
+            else:
                 error_msg_box = QMessageBox()
-                error_msg_box.setIcon(QMessageBox.Critical)
-                error_msg_box.setWindowTitle("Database Error")
-                error_msg_box.setText(f"An error occurred while fetching user credentials: {err.msg}")
+                error_msg_box.setIcon(QMessageBox.Warning)
+                error_msg_box.setWindowTitle("Error")
+                error_msg_box.setText("User credentials not found in the database.")
                 error_msg_box.exec()
 
+        except mysql.connector.Error as err:
+            error_msg_box = QMessageBox()
+            error_msg_box.setIcon(QMessageBox.Critical)
+            error_msg_box.setWindowTitle("Database Error")
+            error_msg_box.setText(f"An error occurred while fetching user credentials: {err.msg}")
+            error_msg_box.exec()
 
     def calculate_age(self, birthdate):
         if isinstance(birthdate, str):
@@ -1199,7 +1261,6 @@ class MainApp:
         today = datetime.date.today()
         age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
         return age    
-
 
     def show_edit_profile(self):
         self.edit_profile_window.show()
@@ -1401,6 +1462,117 @@ class MainApp:
         elif result == QMessageBox.No:
             save_change_msg_box.close()
             self.show_edit_profile()
+
+    def change_fingerprint(self):
+        try:
+            if self.register_fingerprint_window:
+                self.register_fingerprint_window.show()
+            else:
+                QMessageBox.critical(None, "Error", "Fingerprint change window could not be loaded.")
+                return
+
+            self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
+            if self.skip_btn:
+                self.skip_btn.clicked.connect(self.register_fingerprint_window.close)
+
+            else:
+                QMessageBox.warning(None, "Error", "Skip button not found in the fingerprint window.")
+                return
+
+            self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
+            if self.cancel_btn:
+                self.cancel_btn.clicked.connect(self.register_fingerprint_window.close)
+            else:
+                QMessageBox.warning(None, "Error", "Cancel button not found in the fingerprint window.")
+                return
+
+            self.register_fingerprint_window.setWindowTitle("Change Fingerprint")
+            instruction_label = self.register_fingerprint_window.findChild(QLabel, "label")
+            if instruction_label:
+                instruction_label.setText("Please put your finger to the scanner to change your fingerprint.")
+
+            try:
+                self.fingerprint_scanner = ZKFP2()
+                self.fingerprint_scanner.Init()
+                self.fingerprint_scanner.OpenDevice(0)
+                self.fingerprint_scanner.Light("green")
+
+                self.templates = []
+                self.register = True
+
+            except ImportError:
+                QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
+                self.register_fingerprint_window.hide()
+                return
+
+            self.progress_bar = self.register_fingerprint_window.findChild(QProgressBar, "progress_bar")
+            if self.progress_bar:
+                self.progress_bar.setValue(0)
+                self.progress_bar.setMaximum(3)
+
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.check_fingerprint_scanner_for_change)
+            self.timer.start(100)  # Check every 100 milliseconds
+
+        except Exception as e:
+            print(f"Error during fingerprint change: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint change: {str(e)}")
+            self.register_fingerprint_window.hide()
+            return
+
+    def check_fingerprint_scanner_for_change(self):
+        try:
+            self.email = self.email_lineedit.text()
+            if not self.fingerprint_scanner:
+                QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                self.register_fingerprint_window.hide()
+                self.timer.stop()
+                return
+
+            capture = self.fingerprint_scanner.AcquireFingerprint()
+            if capture:
+                tmp, _ = capture
+                if tmp:  # Ensure tmp is not None or empty
+                    print(f"Fingerprint captured: {tmp}")  # Debugging log
+
+                    if len(self.templates) < 3:
+                        if not self.templates or self.fingerprint_scanner.DBMatch(self.templates[-1], tmp) > 0:
+                            self.fingerprint_scanner.Light("green")
+                            self.templates.append(tmp)
+
+                # Update progress bar in the GUI
+                if self.progress_bar:
+                    self.progress_bar.setValue(len(self.templates))
+
+                try:
+                    query = """
+                        UPDATE Users_Info
+                        SET fingerprint = %s
+                        WHERE email = %s
+                    """
+                    fingerprint_blob = bytes(tmp)  # Convert 'tmp' to binary format
+
+                    if self.email:
+                        DB.mycursor.execute(query, (fingerprint_blob, self.email))
+                        DB.conn.commit()
+                    else:
+                        print("Error: Email is not defined or not set.")
+
+                except mysql.connector.Error as db_err:
+                    QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
+
+                # Stop the timer and complete registration if 3 fingerprints are captured
+                if len(self.templates) >= 3:
+                    self.timer.stop()
+                    QMessageBox.information(None, "Success", "Fingerprint change completed successfully.")
+                    self.register_fingerprint_window.hide()
+
+        except Exception as e:
+            print(f"Error during fingerprint change: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint change: {str(e)}")
+            self.register_fingerprint_window.hide()
+            self.timer.stop()
+            return
 
     def show_select_role_with_data(self): # Update the database with role changes
         selected_row = self.user_table.currentRow()
@@ -2552,13 +2724,13 @@ class MainApp:
         self.setup_login_page()
     
     def log_out(self):
+        self.current_dashboard.hide()
         self.login_window.show()
+        self.setup_login_page()
         self.log_in_stacked.setCurrentIndex(1)
 
         self.email_lineedit.setText("")
         self.password_lineedit.setText("")
-
-        self.current_dashboard.hide()
 
     def run(self):
         self.login_window.show()
