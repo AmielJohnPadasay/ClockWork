@@ -10,8 +10,9 @@ from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMa
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, QDate, QTimer
 from PySide6.QtWidgets import QMessageBox, QTableWidgetSelectionRange
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPainter
 from pyzkfp import ZKFP2
+from PySide6.QtCharts import QChart, QChartView, QPieSeries
 import time  # Import the time module for sleep function
 
 email = "amiel.padasay004@gmail.com"
@@ -540,7 +541,7 @@ class MainApp:
                 return
 
             try:
-                from pyzkfp import ZKFP2
+
                 self.fingerprint_scanner = ZKFP2()
                 self.fingerprint_scanner.Init()
                 self.fingerprint_scanner.OpenDevice(0)
@@ -911,6 +912,9 @@ class MainApp:
             self.task_calendar_2.selectionChanged.connect(self.show_tasks_for_selected_date)
             self.color_code_calendar_by_priority_2()
 
+        # Call the function to display the pie chart
+        self.show_task_completion_pie_chart()
+
         self.change_role_btn = self.current_dashboard.findChild(QWidget, "change_role_btn")
         if self.change_role_btn:
             self.change_role_btn.clicked.connect(self.show_select_role_with_data)
@@ -934,6 +938,57 @@ class MainApp:
             self.update_validate_btn_visibility(self.task_tab.currentIndex())
         else:
             print("Error: task_tab not found.")
+
+    def show_task_completion_pie_chart(self):
+        # Fetch task completion data from the database
+        try:
+            query = """
+                        SELECT status, COUNT(*) as count
+                        FROM Task_Storage
+                        GROUP BY status
+                    """
+            DB.mycursor.execute(query)
+            task_data = DB.mycursor.fetchall()
+
+            # Check if there is any data in Task_Storage
+            if not task_data:
+                # If no data, create a QLabel and add it to the group box
+                self.task_completion_groupbox = self.current_dashboard.findChild(QWidget, "task_completion_groupbox")
+                if self.task_completion_groupbox:
+                    layout = QVBoxLayout(self.task_completion_groupbox)
+                    no_data_label = QLabel("No task data available.")
+                    no_data_label.setAlignment(Qt.AlignCenter)
+                    layout.addWidget(no_data_label)
+                    self.task_completion_groupbox.setLayout(layout)
+                return
+
+            # Create a pie series
+            self.series = QPieSeries()
+            for status, count in task_data:
+                self.series.append(f"{status} ({count})", count)
+
+            # Create a chart and add the series
+            self.chart = QChart()
+            self.chart.addSeries(self.series)
+            self.chart.setTitle("Task Completion Status")
+            self.chart.legend().setVisible(True)
+            self.chart.legend().setAlignment(Qt.AlignBottom)
+
+            # Create a chart view and set it in the group box
+            self.chart_view = QChartView(self.chart)
+            self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self.chart_view.setMinimumSize(400, 300)  # Set a larger minimum size for the chart
+
+            # Find the group box and add the chart view
+            self.task_completion_groupbox = self.current_dashboard.findChild(QWidget, "task_completion_groupbox")
+            if self.task_completion_groupbox:
+                layout = QVBoxLayout(self.task_completion_groupbox)
+                layout.addWidget(self.chart_view)
+                self.task_completion_groupbox.setLayout(layout)
+
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching task data: {err.msg}")
+
 
     def search_tasks(self):
         search_text = self.search_bar_tasks.text().strip().lower()
@@ -1012,7 +1067,7 @@ class MainApp:
         self.link_submitted_label = self.validate_task_window.findChild(QLabel, "link_submitted_label")
         self.download_file_btn = self.validate_task_window.findChild(QPushButton, "download_file_btn")
         self.open_link_btn = self.validate_task_window.findChild(QPushButton, "openlink_btn")
-        self.validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
+        self._validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
         self.cancel_btn = self.validate_task_window.findChild(QPushButton, "cancel_btn")
 
         selected_row = self.completedtask_table.currentRow()
@@ -1079,8 +1134,8 @@ class MainApp:
             QMessageBox.warning(self.validate_task_window, "Error", "No task selected.")
 
         # Buttons
-        if self.validate_btn:
-            self.validate_btn.clicked.connect(self.confirm_validate_task)
+        if self._validate_btn:
+            self._validate_btn.clicked.connect(self.confirm_validate_task)
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.validate_task_window.close)
 
@@ -1415,7 +1470,8 @@ class MainApp:
                     if self.new_others_edit:
                         new_s = self.new_others_edit.text()
 
-                # Update temporary containers
+                # Update temporary containers 
+                # Keep an eye
                 first_name_container[index] = new_first_name
                 last_name_container[index] = new_last_name
                 middle_initial_container[index] = new_middle_initial
@@ -1595,7 +1651,7 @@ class MainApp:
             if role_label:
                 role_label.setText((f"Current Role: {self.role}"))
 
-        if self.name != "Amiel Padasay":
+        if self.name != "Amiel John Padasay":
             self.show_select_role()
         else:  
             no_change_msg_box = QMessageBox()
@@ -1825,6 +1881,8 @@ class MainApp:
         if self.task_calendar_2:
             self.task_calendar_2.selectionChanged.connect(self.show_tasks_for_selected_date)
             self.color_code_calendar_by_priority_2()
+        
+        self.show_task_completion_pie_chart()
 
         self.search_bar_tasks = self.current_dashboard.findChild(QLineEdit, "search_bar_tasks")
 
@@ -1971,7 +2029,7 @@ class MainApp:
         self.task_name_edit.setMaxLength(255)        
 
         self.task_description_edit = self.assign_task_window.findChild(QTextEdit, "taskreq_edit")
-        self.task_description_edit.setMaxLength(1000)
+        self.task_description_edit.textChanged.connect(self.limit_task_description_length)
 
         self.prioritylevel_combobox = self.assign_task_window.findChild(QComboBox, "prioritylevel_combobox")
         self.prioritylevel_combobox.setCurrentIndex(0)
@@ -2036,6 +2094,17 @@ class MainApp:
         self.cancel_button = self.assign_task_window.findChild(QWidget, "cancel_btn")
         if self.cancel_button:
             self.cancel_button.clicked.connect(self.assign_task_window.hide)
+
+    def limit_task_description_length(self):
+        max_length = 1000
+        current_text = self.task_description_edit.toPlainText()
+        if len(current_text) > max_length:
+            self.task_description_edit.blockSignals(True)
+            self.task_description_edit.setPlainText(current_text[:max_length])
+            self.task_description_edit.blockSignals(False)
+            cursor = self.task_description_edit.textCursor()
+            cursor.movePosition(cursor.End)
+            self.task_description_edit.setTextCursor(cursor)
 
     def search_assign(self):
         if not self.assign_member_group_table:
@@ -2384,6 +2453,8 @@ class MainApp:
         self.task_calendar_2 = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar")
         if self.task_calendar_2:
             self.color_code_calendar_by_priority_2()
+
+        self.show_task_completion_pie_chart()
 
         self.submit_task_button = self.current_dashboard.findChild(QWidget, "submit_task_btn")
         if self.submit_task_button:
