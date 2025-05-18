@@ -118,7 +118,7 @@ class Clockwork_Database:
         self.conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="Pads_2004120"  # Pads_2004120 amiel_2004
+            password="amiel_2004"  # Pads_2004120 amiel_2004
         )
         self.mycursor = self.conn.cursor()
         self.initialize_database()
@@ -189,6 +189,12 @@ class Clockwork_Database:
             if result:
                 print("Error: An account with this email already exists.")
                 return "Duplicate email detected. Account not added."
+
+            # Normalize the email to lowercase and names to uppercase
+            email = email.lower()
+            first_name = first_name.upper()
+            last_name = last_name.upper()
+            middle_initial = middle_initial.upper()
 
             query = """
                 INSERT INTO Users_Info (username, email, password, birthdate, role, first_name, last_name, middle_initial, suffix, sex)
@@ -342,39 +348,71 @@ class MainApp:
 
     def check_fingerprint_for_login(self):
         try:
+            if not hasattr(self, 'fingerprint_scanner') or not self.fingerprint_scanner:
+                QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                return
+
             capture = self.fingerprint_scanner.AcquireFingerprint()
             if capture:
                 tmp, _ = capture
                 print(f"Fingerprint captured: {tmp}")  # Debugging log
 
                 # Fetch all fingerprints from the database
-                query = "SELECT email, password, fingerprint FROM Users_Info WHERE fingerprint IS NOT NULL"
+                query = "SELECT email, username, password, fingerprint FROM Users_Info WHERE fingerprint IS NOT NULL"
                 DB.mycursor.execute(query)
-                users_fingerprints = DB.mycursor.fetchall()
+                results = DB.mycursor.fetchall()
+                if results:
+                    for email, username, password, fingerprint_blob in results:
+                        if fingerprint_blob:
+                            # Convert fingerprint_blob (bytes) to list of ints for DBMatch
+                            db_template = list(fingerprint_blob)
+                            # DBMatch expects two templates: enrolled and captured
+                            if self.fingerprint_scanner.DBMatch(db_template, tmp) > 0:
+                                if hasattr(self, 'timer') and self.timer:
+                                    self.timer.stop()
+                                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                                    self.fingerprint_scanner.CloseDevice()
+                                    self.fingerprint_scanner.Terminate()
+                                    self.fingerprint_scanner = None
+                                QMessageBox.information(None, "Login Successful", f"Welcome, {username}!")
+                                self.email_lineedit.setText(email)
+                                self.password_lineedit.setText(password)
+                                self.load_dashboard()
+                                return
+                    # If no match found after checking all fingerprints
+                    QMessageBox.warning(None, "Login Failed", "Fingerprint not recognized. Please try again.")
+                # Only close the scanner after all matching attempts
+                if hasattr(self, 'timer') and self.timer:
+                    self.timer.stop()
+                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                    self.fingerprint_scanner.CloseDevice()
+                    self.fingerprint_scanner.Terminate()
+                    self.fingerprint_scanner = None
 
-                for email, password, fingerprint_blob in users_fingerprints:
-                    if self.fingerprint_scanner.DBMatch(list(fingerprint_blob), tmp) > 0:
-                        self.timer.stop()
-                        self.fingerprint_scanner.CloseDevice()
-                        self.fingerprint_scanner.Terminate()
-                        QMessageBox.information(None, "Login Successful", f"Welcome, {email}!")
-                        self.email_lineedit.setText(email)
-                        self.password_lineedit.setText(password)
-                        self.load_dashboard()
-                        return
-
-                QMessageBox.warning(None, "Login Failed", "Fingerprint not recognized. Please try again.")
-            
         except Exception as e:
             print(f"Error during fingerprint login: {str(e)}")  # Debugging log
             QMessageBox.critical(None, "Error", f"An error occurred during fingerprint login: {str(e)}")
-            self.timer.stop()
-            self.fingerprint_scanner.CloseDevice()
-            self.fingerprint_scanner.Terminate()
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+            if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                self.fingerprint_scanner.CloseDevice()
+                self.fingerprint_scanner.Terminate()
+                self.fingerprint_scanner = None
             return
 
-
     def setup_create_account_page(self):
+        # Stop fingerprint scanner and timer if running
+        if hasattr(self, 'timer') and self.timer:
+            self.timer.stop()
+            self.timer = None
+        if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+            try:
+                self.fingerprint_scanner.CloseDevice()
+                self.fingerprint_scanner.Terminate()
+            except Exception:
+                pass
+            self.fingerprint_scanner = None
+
         self.create_account_window.setWindowTitle("Create Account")
         self.create_account_window.show()
         self.login_window.hide()
@@ -488,7 +526,16 @@ class MainApp:
             not_match_msg_box.setWindowTitle("Password Mismatch")
             not_match_msg_box.setText("Passwords do not match.")
             not_match_msg_box.exec()
-            return 
+            return
+        
+        # Check if birthdate makes the user's age above or equal to 18 years old.
+        elif (datetime.date.today() - self.birthdate_edit.date().toPython()).days // 365 < 18:
+            underage_msg_box = QMessageBox()
+            underage_msg_box.setIcon(QMessageBox.Warning)
+            underage_msg_box.setWindowTitle("Invalid Age")
+            underage_msg_box.setText("You must be at least 18 years old to create an account.")
+            underage_msg_box.exec()
+            return
 
         # Check if the email already exists in the official database
         try:
@@ -522,6 +569,8 @@ class MainApp:
         try:
             if self.register_fingerprint_window:
                 self.register_fingerprint_window.show()
+                # Set the "x" button (close event) to open the login window
+                self.register_fingerprint_window.closeEvent = lambda event: (self.open_login(), event.accept())
             else:
                 QMessageBox.critical(None, "Error", "Fingerprint registration window could not be loaded.")
                 return
@@ -1578,7 +1627,7 @@ class MainApp:
 
     def check_fingerprint_scanner_for_change(self):
         try:
-            self.email = self.email_lineedit.text()
+            self.email = self.email_edit.text()
             if not self.fingerprint_scanner:
                 QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
                 self.register_fingerprint_window.hide()
@@ -1651,7 +1700,7 @@ class MainApp:
             if role_label:
                 role_label.setText((f"Current Role: {self.role}"))
 
-        if self.name != "Amiel John Padasay":
+        if self.name != "AMIEL JOHN PADASAY":
             self.show_select_role()
         else:  
             no_change_msg_box = QMessageBox()
@@ -1994,6 +2043,7 @@ class MainApp:
                 self.calendar_task_table.setRowCount(len(tasks_info))
                 self.calendar_task_table.setColumnCount(6)
                 self.calendar_task_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+                self.calendar_task_table.setVerticalHeaderLabels([])
 
             # Populate the table with tasks for the selected date
             for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
@@ -2385,8 +2435,6 @@ class MainApp:
 
                     except mysql.connector.Error as err:
                         QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing pending tasks: {err.msg}")
-
-                    remove_task_msg_box.close()
 
                 elif remove_result == QMessageBox.No:
                     remove_task_msg_box.close()
