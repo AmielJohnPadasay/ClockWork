@@ -71,7 +71,17 @@
     <item row="0" column="3">
      <widget class="QPushButton" name="log_out_btn">
       <property name="text">
-       <string>Log-Out</string>
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>resources/new_menu_window_icon (6).png</normaloff>resources/new_menu_window_icon (6).png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>50</width>
+        <height>50</height>
+       </size>
       </property>
      </widget>
     </item>
@@ -87,7 +97,17 @@
        <string>Group Members</string>
       </property>
       <property name="text">
-       <string>Profile</string>
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>resources/new_menu_window_icon (5).png</normaloff>resources/new_menu_window_icon (5).png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>50</width>
+        <height>50</height>
+       </size>
       </property>
      </widget>
     </item>
@@ -95,7 +115,7 @@
      <widget class="QFrame" name="btns_frame">
       <property name="maximumSize">
        <size>
-        <width>100</width>
+        <width>120</width>
         <height>16777215</height>
        </size>
       </property>
@@ -113,7 +133,7 @@
         <widget class="QPushButton" name="activity_log_btn">
          <property name="minimumSize">
           <size>
-           <width>80</width>
+           <width>110</width>
            <height>50</height>
           </size>
          </property>
@@ -128,6 +148,16 @@
          </property>
          <property name="text">
           <string>Activity Log</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>resources/new_menu_window_icon (2).png</normaloff>resources/new_menu_window_icon (2).png</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>30</width>
+           <height>30</height>
+          </size>
          </property>
         </widget>
        </item>
@@ -135,7 +165,7 @@
         <widget class="QPushButton" name="dashboard_btn">
          <property name="minimumSize">
           <size>
-           <width>80</width>
+           <width>110</width>
            <height>50</height>
           </size>
          </property>
@@ -151,13 +181,23 @@
          <property name="text">
           <string>Dashboard</string>
          </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>resources/new_menu_window_icon.png</normaloff>resources/new_menu_window_icon.png</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>30</width>
+           <height>30</height>
+          </size>
+         </property>
         </widget>
        </item>
        <item row="2" column="0">
         <widget class="QPushButton" name="calendar_btn">
          <property name="minimumSize">
           <size>
-           <width>80</width>
+           <width>110</width>
            <height>50</height>
           </size>
          </property>
@@ -172,6 +212,16 @@
          </property>
          <property name="text">
           <string>Calendar</string>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>resources/new_menu_window_icon (3).png</normaloff>resources/new_menu_window_icon (3).png</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>30</width>
+           <height>30</height>
+          </size>
          </property>
         </widget>
        </item>
