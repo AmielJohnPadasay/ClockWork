@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>383</width>
-    <height>329</height>
+    <width>396</width>
+    <height>334</height>
    </rect>
   </property>
   <property name="font">
@@ -129,6 +129,13 @@
          <widget class="QPushButton" name="edit_profile_btn">
           <property name="text">
            <string>Edit Profile</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="register_fingerprint_btn">
+          <property name="text">
+           <string>Register Fingerprint</string>
           </property>
          </widget>
         </item>

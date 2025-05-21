@@ -4,16 +4,24 @@ import datetime
 import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget,
-                               QTableWidgetItem, QRadioButton, QDateEdit, QTabWidget, QTimeEdit, QTextEdit, QTextBrowser)
+                               QTableWidgetItem, QRadioButton, QDateEdit, QTabWidget, QTimeEdit,
+                               QTextEdit, QTextBrowser, QProgressBar)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog, QCalendarWidget
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile, Qt, QDate
-from PySide6.QtWidgets import QMessageBox
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QFile, Qt, QDate, QTimer
+from PySide6.QtWidgets import QMessageBox, QTableWidgetSelectionRange
+from PySide6.QtGui import QColor, QPainter
+from pyzkfp import ZKFP2
+from PySide6.QtCharts import QChart, QChartView, QPieSeries
+import time  # Import the time module for sleep function
+import smtplib
+from email.message import EmailMessage
 
-email = "a@gmail.com"
-password = "22222222"
-first_name = "Amiel"
+app_password = "uuye ugda doxg vhob"
+
+email = "amiel.padasay004@gmail.com"
+password = "amiel2004"
+first_name = "Amiel John"
 last_name = "Padasay"
 middle_initial = "R."
 suffix = ""
@@ -31,7 +39,7 @@ manager_role = "Manager"
 manager_birthdate = "2005-09-18"
 manager_sex = "Male"
 
-employee_email = "q@gmail.com"
+employee_email = "franciarazopadasay@gmail.com"
 employee_password = "12345678"
 employee_first_name = "Quincy"
 employee_last_name = "Domingo"
@@ -145,8 +153,8 @@ class Clockwork_Database:
                     last_name VARCHAR(100) NOT NULL, 
                     middle_initial VARCHAR(10),
                     suffix VARCHAR(10), 
-                    sex VARCHAR(10) NOT NULL, 
-                    fingerprint TINYBLOB, 
+                    sex VARCHAR(20) NOT NULL, 
+                    fingerprint MEDIUMBLOB, 
                     task_id INT
                 )
             """)
@@ -160,15 +168,15 @@ class Clockwork_Database:
                 CREATE TABLE IF NOT EXISTS Task_Storage(
                     task_id INT AUTO_INCREMENT PRIMARY KEY, 
                     task_name VARCHAR(255) NOT NULL, 
-                    task_description VARCHAR(500) NOT NULL,
-                    task_requirement VARCHAR(50), 
-                    submitted_link VARCHAR(500),
-                    submitted_file MEDIUMBLOB, 
+                    task_description VARCHAR(1000) NOT NULL,
+                    task_requirement VARCHAR(50) NOT NULL,
+                    submitted_link VARCHAR(1000),
+                    submitted_file LONGBLOB, 
                     due_date_time DATETIME NOT NULL, 
                     priority_level VARCHAR(50) NOT NULL, 
                     status VARCHAR(50) NOT NULL, 
                     submitted_date_time DATETIME, 
-                    group_members VARCHAR(255), 
+                    group_members VARCHAR(255) NOT NULL,
                     user_id INT
                 )
             """)
@@ -185,6 +193,12 @@ class Clockwork_Database:
             if result:
                 print("Error: An account with this email already exists.")
                 return "Duplicate email detected. Account not added."
+
+            # Normalize the email to lowercase and names to uppercase
+            email = email.lower()
+            first_name = first_name.upper()
+            last_name = last_name.upper()
+            middle_initial = middle_initial.upper()
 
             query = """
                 INSERT INTO Users_Info (username, email, password, birthdate, role, first_name, last_name, middle_initial, suffix, sex)
@@ -214,6 +228,99 @@ DB.create_task_storage_table()
 DB.create_account_to_db(email, password, first_name, last_name, middle_initial, suffix, birthdate, sex, role)
 DB.create_account_to_db(manager_email, manager_password, manager_first_name, manager_last_name, manager_middle_initial, manager_suffix, manager_birthdate, manager_sex, manager_role)
 DB.create_account_to_db(employee_email, employee_password, employee_first_name, employee_last_name, employee_middle_initial, employee_suffix, employee_birthdate, employee_sex, employee_role)
+
+class EmailScheduler:
+    def __init__(self, parent=None):
+        self.parent = parent  # Reference to MainApp if needed
+        self.reminder_timer = None
+        self.app_password = "uuye ugda doxg vhob"
+        self.sender_email = "amiel.padasay004@gmail.com"
+
+    def send_task_reminders(self):
+        """
+        Sends email reminders to employees for pending tasks that are due in 1 day.
+        """
+        try:
+            # Fetch tasks that are pending and due in 1 day
+            query = """
+                SELECT task_name, group_members, due_date_time
+                FROM Task_Storage
+                WHERE status = 'Pending'
+            """
+            DB.mycursor.execute(query)
+            tasks = DB.mycursor.fetchall()
+            now = datetime.datetime.now()
+            for task_name, group_members, due_date_time in tasks:
+                if due_date_time:
+                    # Parse due_date_time robustly
+                    due_date = None
+                    if isinstance(due_date_time, str):
+                        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                            try:
+                                due_date = datetime.datetime.strptime(due_date_time, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        if due_date is None:
+                            continue
+                    elif isinstance(due_date_time, datetime.datetime):
+                        due_date = due_date_time
+                    elif isinstance(due_date_time, datetime.date):
+                        due_date = datetime.datetime.combine(due_date_time, datetime.time.min)
+                    else:
+                        continue
+
+                    delta = due_date - now
+                    if datetime.timedelta(0) < delta <= datetime.timedelta(days=1):
+                        # Send email to each group member
+                        member_names = [name.strip() for name in group_members.split(",") if name.strip()]
+                        for member_name in member_names:
+                            # Get email of the member
+                            DB.mycursor.execute(
+                                "SELECT email FROM Users_Info WHERE CONCAT(first_name, ' ', last_name) = %s",
+                                (member_name,)
+                            )
+                            result = DB.mycursor.fetchone()
+                            if result:
+                                recipient_email = result[0]
+                                # Compose and send the email
+                                msg = EmailMessage()
+                                msg["Subject"] = f"Task Reminder: '{task_name}' is due soon"
+                                msg["From"] = self.sender_email
+                                msg["To"] = recipient_email
+                                msg.set_content(
+                                    f"Dear {member_name},\n\n"
+                                    f"This is a reminder that your task '{task_name}' is due on {due_date.strftime('%Y-%m-%d %H:%M')}.\n"
+                                    "Please make sure to complete and submit it on time.\n\n"
+                                    "Best regards,\nClockWork System"
+                                )
+                                try:
+                                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                                        smtp.login(self.sender_email, self.app_password)
+                                        smtp.send_message(msg)
+                                    print(f"Reminder sent to {recipient_email} for task '{task_name}'.")
+                                except Exception as e:
+                                    print(f"Failed to send email to {recipient_email}: {e}")
+        except Exception as e:
+            print(f"Error in send_task_reminders: {e}")
+
+    def start_task_reminder_timer(self):
+        """
+        Starts a QTimer to run send_task_reminders periodically in the background.
+        Ensures only one timer is running and works after the event loop starts.
+        """
+        if self.reminder_timer is not None:
+            self.reminder_timer.stop()
+            self.reminder_timer.deleteLater()
+            self.reminder_timer = None
+
+        self.reminder_timer = QTimer()
+        self.reminder_timer.setInterval(24 * 60 * 60 * 1000)  # 24 hours
+        self.reminder_timer.timeout.connect(self.send_task_reminders)
+        self.reminder_timer.start()
+        # Optionally, send reminders once at startup
+        self.send_task_reminders()
+
 
 class MainApp:
     def __init__(self):
@@ -277,6 +384,9 @@ class MainApp:
 
         self.setup_login_page()  # Setup the login page
 
+        self.EmailScheduler = EmailScheduler()
+        self.EmailScheduler.start_task_reminder_timer()
+
     # Log-In Page
     def setup_login_page(self):
         global email
@@ -290,13 +400,15 @@ class MainApp:
         self.log_in_stacked = self.login_window.findChild(QStackedWidget, "log_in_stacked")
         self.log_in_stacked.setCurrentIndex(1)
 
+        self.log_in_with_fingerprint()
+
         self.log_in_credentials_btn = self.login_window.findChild(QWidget, "log_in_credentials_btn")
         if self.log_in_credentials_btn:
             self.log_in_credentials_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(0))
 
         self.log_in_fingerprint_btn = self.login_window.findChild(QWidget, "log_in_fingerprint_btn")
         if self.log_in_fingerprint_btn:
-            self.log_in_fingerprint_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(1))
+            self.log_in_fingerprint_btn.clicked.connect(self.log_in_with_fingerprint)
 
         self.email_lineedit = self.login_window.findChild(QLineEdit, "email_lineEdit")
 
@@ -315,19 +427,112 @@ class MainApp:
         self.email_lineedit.textChanged.connect(lambda: None)
         self.password_lineedit.textChanged.connect(lambda: None)
 
+    def log_in_with_fingerprint(self):
+        try:
+            self.log_in_stacked.setCurrentIndex(1)
+            self.fingerprint_scanner = ZKFP2()
+            self.fingerprint_scanner.Init()
+            self.fingerprint_scanner.OpenDevice(0)
+            self.fingerprint_scanner.Light("green")
+
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.check_fingerprint_for_login)
+            self.timer.start(100)  # Check every 100 milliseconds
+
+        except ImportError:
+            QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
+            return
+        except Exception as e:
+            QMessageBox.critical(None, "Error", f"An error occurred while initializing the fingerprint scanner: {str(e)}")
+            return
+
+    def check_fingerprint_for_login(self):
+        try:
+            if not hasattr(self, 'fingerprint_scanner') or not self.fingerprint_scanner:
+                QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                return
+
+            capture = self.fingerprint_scanner.AcquireFingerprint()
+            if capture:
+                tmp, _ = capture
+                print(f"Fingerprint captured: {tmp}")  # Debugging log
+
+                # Fetch all fingerprints from the database
+                query = "SELECT email, username, password, fingerprint FROM Users_Info WHERE fingerprint IS NOT NULL"
+                DB.mycursor.execute(query)
+                results = DB.mycursor.fetchall()
+                if results:
+                    for email, username, password, fingerprint_blob in results:
+                        if fingerprint_blob:
+                            # Convert fingerprint_blob (bytes) to list of ints for DBMatch
+                            db_template = list(fingerprint_blob)
+                            # DBMatch expects two templates: enrolled and captured
+                            if self.fingerprint_scanner.DBMatch(db_template, tmp) > 0:
+                                if hasattr(self, 'timer') and self.timer:
+                                    self.timer.stop()
+                                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                                    self.fingerprint_scanner.CloseDevice()
+                                    self.fingerprint_scanner.Terminate()
+                                    self.fingerprint_scanner = None
+                                QMessageBox.information(None, "Login Successful", f"Welcome, {username}!")
+                                self.email_lineedit.setText(email)
+                                self.password_lineedit.setText(password)
+                                self.load_dashboard()
+                                return
+                    # If no match found after checking all fingerprints
+                    QMessageBox.warning(None, "Login Failed", "Fingerprint not recognized. Please try again.")
+                # Only close the scanner after all matching attempts
+                if hasattr(self, 'timer') and self.timer:
+                    self.timer.stop()
+                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                    self.fingerprint_scanner.CloseDevice()
+                    self.fingerprint_scanner.Terminate()
+                    self.fingerprint_scanner = None
+
+        except Exception as e:
+            print(f"Error during fingerprint login: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint login: {str(e)}")
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+            if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                self.fingerprint_scanner.CloseDevice()
+                self.fingerprint_scanner.Terminate()
+                self.fingerprint_scanner = None
+            return
 
     def setup_create_account_page(self):
+        # Stop fingerprint scanner and timer if running
+        if hasattr(self, 'timer') and self.timer:
+            self.timer.stop()
+            self.timer = None
+        if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+            try:
+                self.fingerprint_scanner.CloseDevice()
+                self.fingerprint_scanner.Terminate()
+            except Exception:
+                pass
+            self.fingerprint_scanner = None
+
         self.create_account_window.setWindowTitle("Create Account")
         self.create_account_window.show()
         self.login_window.hide()
 
         # Inputs for user credentials
         self.email_edit = self.create_account_window.findChild(QLineEdit, "email_edit")
+        self.email_edit.setMaxLength(255)
+
         self.last_name_edit = self.create_account_window.findChild(QLineEdit, "last_name_edit")
+        self.last_name_edit.setMaxLength(100)
+
         self.first_name_edit = self.create_account_window.findChild(QLineEdit, "first_name_edit")
+        self.first_name_edit.setMaxLength(100)
+
         self.middle_init_edit = self.create_account_window.findChild(QLineEdit, "middle_initial_edit")
+        self.middle_init_edit.setMaxLength(10)
+
         self.suffix_combobox = self.create_account_window.findChild(QComboBox, "suffix_combobox")
         self.suffix_combobox.setCurrentIndex(0)
+
         self.birthdate_edit = self.create_account_window.findChild(QDateEdit, "birthdate_edit")
 
         #For sex radio buttons
@@ -337,6 +542,7 @@ class MainApp:
         
         self.others_radio_btn = self.create_account_window.findChild(QRadioButton, "others_radio")
         self.others_edit = self.create_account_window.findChild(QLineEdit, "others_edit")
+        self.others_edit.setMaxLength(20)
         self.others_edit.setPlaceholderText("Please specify")
 
         self.others_edit.setEnabled(False)
@@ -350,8 +556,22 @@ class MainApp:
         #For passwords
         self.password_edit = self.create_account_window.findChild(QLineEdit, "password_edit")
         self.password_edit.setEchoMode(QLineEdit.Password)
+        self.password_edit.setMaxLength(255)
+
         self.confirm_password_edit = self.create_account_window.findChild(QLineEdit, "confirm_password_edit")
         self.confirm_password_edit.setEchoMode(QLineEdit.Password)
+        self.confirm_password_edit.setMaxLength(255)
+
+        #Ensure that the create account edit credentials are empty
+
+        self.email_edit.setText("")
+        self.last_name_edit.setText("")
+        self.first_name_edit.setText("")
+        self.middle_init_edit.setText("")
+        self.suffix_combobox.setCurrentIndex(0)
+        self.password_edit.setText("")
+        self.confirm_password_edit.setText("")
+        self.birthdate_edit.setDate(datetime.date.today())
 
         self.change_into_log_in_button = self.create_account_window.findChild(QWidget, "change_into_log_in_button")
         if self.change_into_log_in_button:
@@ -406,7 +626,16 @@ class MainApp:
             not_match_msg_box.setWindowTitle("Password Mismatch")
             not_match_msg_box.setText("Passwords do not match.")
             not_match_msg_box.exec()
-            return 
+            return
+        
+        # Check if birthdate makes the user's age above or equal to 18 years old.
+        elif (datetime.date.today() - self.birthdate_edit.date().toPython()).days // 365 < 18:
+            underage_msg_box = QMessageBox()
+            underage_msg_box.setIcon(QMessageBox.Warning)
+            underage_msg_box.setWindowTitle("Invalid Age")
+            underage_msg_box.setText("You must be at least 18 years old to create an account.")
+            underage_msg_box.exec()
+            return
 
         # Check if the email already exists in the official database
         try:
@@ -430,18 +659,132 @@ class MainApp:
             return
 
         # If all validations pass, store the account into the database
-        self.register_fingerprint()
+        self.store_into_database()
+
+    def open_login(self):
+        self.register_fingerprint_window.hide()
+        self.show_login()
        
     def register_fingerprint(self):
-        self.register_fingerprint_window.show()
+        try:
+            if self.register_fingerprint_window:
+                self.register_fingerprint_window.show()
+                # Set the "x" button (close event) to open the login window
+                self.register_fingerprint_window.closeEvent = lambda event: (self.open_login(), event.accept())
+            else:
+                QMessageBox.critical(None, "Error", "Fingerprint registration window could not be loaded.")
+                return
 
-        self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
-        if self.skip_btn:
-            self.skip_btn.clicked.connect(self.store_into_database)
+            self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
+            if self.skip_btn:
+                self.skip_btn.clicked.connect(self.open_login)
+            else:
+                QMessageBox.warning(None, "Error", "Skip button not found in the fingerprint window.")
+                return
 
-        self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
-        if self.cancel_btn:
-            self.cancel_btn.clicked.connect(self.register_fingerprint_window.hide)
+            self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
+            if self.cancel_btn:
+                self.cancel_btn.clicked.connect(self.open_login)
+            else:
+                QMessageBox.warning(None, "Error", "Cancel button not found in the fingerprint window.")
+                return
+
+            try:
+
+                self.fingerprint_scanner = ZKFP2()
+                self.fingerprint_scanner.Init()
+                self.fingerprint_scanner.OpenDevice(0)
+                self.fingerprint_scanner.Light("green")
+
+                self.templates = []
+                self.register = True
+
+            except ImportError:
+                QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
+                self.register_fingerprint_window.hide()
+                return
+            
+            self.progress_bar = self.register_fingerprint_window.findChild(QProgressBar, "progress_bar")
+            if self.progress_bar:
+                self.progress_bar.setValue(0)
+                self.progress_bar.setMaximum(3)
+
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.check_fingerprint_scanner)
+            self.timer.start(100)  # Check every 100 milliseconds
+
+        except Exception as e:
+            print(f"Error during fingerprint registration: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint registration: {str(e)}")
+            self.register_fingerprint_window.hide()
+            self.open_login()
+            return
+        
+    def check_fingerprint_scanner(self):
+        try:
+            self.email = self.email_edit.text()
+            if not self.fingerprint_scanner:
+                QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                self.register_fingerprint_window.hide()
+                self.timer.stop()
+                return
+        
+            capture = self.fingerprint_scanner.AcquireFingerprint()
+            if capture:
+                tmp, _ = capture
+                if tmp:
+                    print(f"Fingerprint captured: {tmp}")  # Debugging log
+                    # Add logic to process the fingerprint data
+                    if not self.templates or all(self.fingerprint_scanner.DBMatch(template, tmp) <= 0 for template in self.templates):
+                        self.templates.append(tmp)
+                        print(f"Fingerprint template added. Total templates: {len(self.templates)}")
+                        if len(self.templates) >= 3:
+                            self.timer.stop()
+                            QMessageBox.information(None, "Success", "Fingerprint registration completed successfully.")
+                            self.register_fingerprint_window.hide()
+                            return tmp  # Return the local variable 'tmp' to make it accessible
+                else:
+                    print("No valid fingerprint data captured.")
+        
+                if len(self.templates) < 3:
+                    if not self.templates or self.fingerprint_scanner.DBMatch(self.templates[-1], tmp) > 0:
+                        self.fingerprint_scanner.Light("green")
+                        self.templates.append(tmp)
+        
+                        # Update progress bar in the GUI
+                        if self.progress_bar:
+                            self.progress_bar.setValue(len(self.templates))
+        
+                            try:
+                                query = """
+                                            UPDATE Users_Info
+                                            SET fingerprint = %s
+                                            WHERE email = %s
+                                    """
+                                fingerprint_blob = bytes(tmp)  # Convert 'tmp' to binary format
+                                if self.email:
+                                    DB.mycursor.execute(query, (fingerprint_blob, self.email))
+                                    DB.conn.commit()
+                                else:
+                                    print("Error: Email is not defined or not set.")
+        
+                            except mysql.connector.Error as db_err:
+                                QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
+        
+                        # Stop the timer and complete registration if 3 fingerprints are captured
+                        if len(self.templates) >= 3:
+                            self.timer.stop()
+                            QMessageBox.information(None, "Success", "Fingerprint registration completed successfully.")
+                            self.register_fingerprint_window.hide()
+                            self.open_login()
+        
+        except Exception as e:
+                print(f"Error during fingerprint registration: {str(e)}")  # Debugging log
+                QMessageBox.critical(None, "Error", f"An error occurred during fingerprint registration: {str(e)}")
+                self.register_fingerprint_window.hide()
+                self.timer.stop()
+                self.open_login()
+                return
 
     def store_into_database(self):
         self.register_fingerprint_window.hide()
@@ -498,25 +841,15 @@ class MainApp:
             error_msg_box.setText(f"An error occurred while storing the account: {err.msg}")
             error_msg_box.exec()
 
-        #Ensure that the create account edit credentials are empty
-
-        self.email_edit.setText("")
-        self.last_name_edit.setText("")
-        self.first_name_edit.setText("")
-        self.middle_init_edit.setText("")
-        self.suffix_combobox.setCurrentIndex(0)
-        self.password_edit.setText("")
-        self.confirm_password_edit.setText("")
-        self.birthdate_edit.setDate(datetime.date.today())
-
         account_created_msg_box = QMessageBox()
         account_created_msg_box.setIcon(QMessageBox.Information)
         account_created_msg_box.setWindowTitle("Account Created")
         account_created_msg_box.setText("Account created successfully!")
         account_created_msg_box.exec()
 
-        self.create_account_window.hide()
-        self.setup_login_page() # The reason for recursive message box?
+        self.register_fingerprint()
+
+        self.create_account_window.hide() # The reason for recursive message box?
 
     def load_dashboard(self):
         self.email = self.email_lineedit.text()
@@ -685,6 +1018,8 @@ class MainApp:
         # Connect buttons and other UI elements as before
         self.stacked_supervisor = self.current_dashboard.findChild(QStackedWidget, "stacked_Supervisor")
 
+        self.stacked_supervisor.setCurrentIndex(0)
+
         self.dashboard_btn = self.current_dashboard.findChild(QWidget, "dashboard_btn")
         if self.dashboard_btn:
             self.dashboard_btn.clicked.connect(lambda: self.stacked_supervisor.setCurrentIndex(0))
@@ -705,6 +1040,18 @@ class MainApp:
         if self.number_tasks_label:
             self.update_task_count()
 
+        self.search_bar_tasks = self.current_dashboard.findChild(QLineEdit, "search_bar_tasks")
+        self.search_btn = self.current_dashboard.findChild(QPushButton, "search_btn")
+        
+        if self.search_btn:
+            self.search_btn.clicked.connect(self.search_tasks)
+
+        self.search_bar_users = self.current_dashboard.findChild(QLineEdit, "search_bar_users")
+
+        self.search_user_btn = self.current_dashboard.findChild(QPushButton, "search_user_btn")
+        if self.search_user_btn:
+            self.search_user_btn.clicked.connect(self.search_users)
+
         self.task_calendar = self.current_dashboard.findChild(QCalendarWidget, "Task_Calendar_2")
         if self.task_calendar:
             self.color_code_calendar_by_priority()
@@ -713,6 +1060,9 @@ class MainApp:
         if self.task_calendar_2:
             self.task_calendar_2.selectionChanged.connect(self.show_tasks_for_selected_date)
             self.color_code_calendar_by_priority_2()
+
+        # Call the function to display the pie chart
+        self.show_task_completion_pie_chart()
 
         self.change_role_btn = self.current_dashboard.findChild(QWidget, "change_role_btn")
         if self.change_role_btn:
@@ -737,6 +1087,102 @@ class MainApp:
             self.update_validate_btn_visibility(self.task_tab.currentIndex())
         else:
             print("Error: task_tab not found.")
+
+        self.EmailScheduler.start_task_reminder_timer()
+
+    def show_task_completion_pie_chart(self):
+        # Fetch task completion data from the database
+        try:
+            query = """
+                        SELECT status, COUNT(*) as count
+                        FROM Task_Storage
+                        GROUP BY status
+                    """
+            DB.mycursor.execute(query)
+            task_data = DB.mycursor.fetchall()
+
+            # Check if there is any data in Task_Storage
+            if not task_data:
+                # If no data, create a QLabel and add it to the group box
+                self.task_completion_groupbox = self.current_dashboard.findChild(QWidget, "task_completion_groupbox")
+                if self.task_completion_groupbox:
+                    layout = QVBoxLayout(self.task_completion_groupbox)
+                    no_data_label = QLabel("No task data available.")
+                    no_data_label.setAlignment(Qt.AlignCenter)
+                    layout.addWidget(no_data_label)
+                    self.task_completion_groupbox.setLayout(layout)
+                return
+
+            # Create a pie series
+            self.series = QPieSeries()
+            # Define custom colors for each status
+            status_colors = {
+                "Pending": QColor("gray"),
+                "Completed - Not Validated": QColor("lightblue"),
+                "Completed - Validated": QColor("navy")
+            }
+            for status, count in task_data:
+                label = f"{status} ({count})"
+                slice_ = self.series.append(label, count)
+                # Set color based on status, default to a color if not found
+                color = status_colors.get(status, QColor("black"))
+                slice_.setBrush(color)
+
+            # Create a chart and add the series
+            self.chart = QChart()
+            self.chart.addSeries(self.series)
+            self.chart.setTitle("Task Completion Status")
+            self.chart.legend().setVisible(True)
+            self.chart.legend().setAlignment(Qt.AlignBottom)
+
+            # Create a chart view and set it in the group box
+            self.chart_view = QChartView(self.chart)
+            self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self.chart_view.setMinimumSize(400, 300)  # Set a larger minimum size for the chart
+
+            # Find the group box and add the chart view
+            self.task_completion_groupbox = self.current_dashboard.findChild(QWidget, "task_completion_groupbox")
+            if self.task_completion_groupbox:
+                layout = QVBoxLayout(self.task_completion_groupbox)
+                layout.addWidget(self.chart_view)
+                self.task_completion_groupbox.setLayout(layout)
+
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching task data: {err.msg}")
+
+    def search_tasks(self):
+        search_text = self.search_bar_tasks.text().strip().lower()
+        if self.pendingtask_table:
+            for row in range(self.pendingtask_table.rowCount()):
+                match_found = False
+                for col in range(self.pendingtask_table.columnCount()):
+                    item = self.pendingtask_table.item(row, col)
+                    if item and search_text in item.text().strip().lower():
+                        match_found = True
+                        break
+                self.pendingtask_table.setRowHidden(row, not match_found)
+
+        if self.completedtask_table:
+            for row in range(self.completedtask_table.rowCount()):
+                match_found = False
+                for col in range(self.completedtask_table.columnCount()):
+                    item = self.completedtask_table.item(row, col)
+                    if item and search_text in item.text().strip().lower():
+                        match_found = True
+                        break
+                self.completedtask_table.setRowHidden(row, not match_found)
+    
+    def search_users(self):
+        search_text = self.search_bar_users.text().strip().lower()
+        if self.user_table:
+            for row in range(self.user_table.rowCount()):
+                match_found = False
+                for col in range(self.user_table.columnCount()):
+                    item = self.user_table.item(row, col)
+                    if item and search_text in item.text().strip().lower():
+                        match_found = True
+                        break
+                self.user_table.setRowHidden(row, not match_found)
 
     def update_task_count(self):
         try:
@@ -781,7 +1227,7 @@ class MainApp:
         self.link_submitted_label = self.validate_task_window.findChild(QLabel, "link_submitted_label")
         self.download_file_btn = self.validate_task_window.findChild(QPushButton, "download_file_btn")
         self.open_link_btn = self.validate_task_window.findChild(QPushButton, "openlink_btn")
-        self.validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
+        self._validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
         self.cancel_btn = self.validate_task_window.findChild(QPushButton, "cancel_btn")
 
         selected_row = self.completedtask_table.currentRow()
@@ -822,6 +1268,7 @@ class MainApp:
                             self.open_link_btn.clicked.connect(self.open_link_browser)
                         if self.download_file_btn:
                             self.download_file_btn.hide()
+
                     elif task_requirement == "File":
                         if self.link_submitted_label:
                             self.link_submitted_label.setText("File Submitted:")
@@ -847,19 +1294,19 @@ class MainApp:
             QMessageBox.warning(self.validate_task_window, "Error", "No task selected.")
 
         # Buttons
-        if self.validate_btn:
-            self.validate_btn.clicked.connect(self.confirm_validate_task)
+        if self._validate_btn:
+            self._validate_btn.clicked.connect(self.confirm_validate_task)
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.validate_task_window.close)
 
-    def download_file(self):
+    def download_file(self): # Need to read file type
         selected_row = self.completedtask_table.currentRow()
         validate_index = selected_row
 
         try:
-            # Fetch the submitted file from the database
+            # Fetch the submitted file and its name from the database
             query = """
-                SELECT submitted_file
+                SELECT submitted_file, task_name
                 FROM Task_Storage
                 WHERE status = 'Completed - Not Validated'
                 LIMIT %s, 1
@@ -869,16 +1316,25 @@ class MainApp:
 
             if result and result[0]:
                 file_data = result[0]
+                task_name = result[1]
+
+                # Use QFileDialog to save the file
                 file_dialog = QFileDialog()
-                save_path, _ = file_dialog.getSaveFileName(self.validate_task_window, "Save File", "", "All Files (*)")
+                suggested_name = f"{task_name}"
+                save_path, _ = file_dialog.getSaveFileName(self.validate_task_window, "Save File", suggested_name, "All Files (*)")
+
                 if save_path:
                     with open(save_path, "wb") as file:
                         file.write(file_data)
-                    QMessageBox.information(self.validate_task_window, "File Downloaded", "The file has been successfully downloaded.")
+                    QMessageBox.information(self.validate_task_window, "File Downloaded", f"The file has been successfully downloaded as {suggested_name}.")
+                else:
+                    QMessageBox.warning(self.validate_task_window, "Download Cancelled", "The file download was cancelled.")
             else:
                 QMessageBox.warning(self.validate_task_window, "Error", "No file available for download.")
         except mysql.connector.Error as err:
             QMessageBox.critical(self.validate_task_window, "Database Error", f"An error occurred: {err.msg}")
+        except Exception as e:
+            QMessageBox.critical(self.validate_task_window, "Error", f"An unexpected error occurred: {str(e)}")
 
     def confirm_validate_task(self):
         selected_row = self.completedtask_table.currentRow()
@@ -930,6 +1386,7 @@ class MainApp:
                 success_msg_box.exec()
 
                 self.validate_task_window.close()
+                self.setup_supervisor_dashboard() # Last Change
 
             except mysql.connector.Error as err:
                 error_msg_box = QMessageBox()
@@ -954,6 +1411,11 @@ class MainApp:
 
         self.profile_window.show()
 
+        self.register_fingerprint_btn = self.profile_window.findChild(QPushButton, "register_fingerprint_btn")
+        if self.register_fingerprint_btn:
+            self.register_fingerprint_btn.setText("Change Fingerprint")
+            self.register_fingerprint_btn.clicked.connect(self.change_fingerprint)
+
         self.edit_profile_btn = self.profile_window.findChild(QWidget, "edit_profile_btn")
         if self.edit_profile_btn:
             self.edit_profile_btn.clicked.connect(self.show_edit_profile)
@@ -961,71 +1423,52 @@ class MainApp:
         # Make the labels have their name, role, email, sex and birthdate according to their index
         self.email = self.email_lineedit.text()
         self.password = self.password_lineedit.text()
-        if self.email in email_container and self.password in password_container:    
-            index = email_container.index(self.email)
 
-            self.name_label = self.profile_window.findChild(QLabel, "name_label")
-            if self.name_label:
-                self.name_label.setText((f"Name: {first_name_container[index]} {middle_initial_container[index]} {last_name_container[index]} {suffix_container[index]}"))
+        try:
+            # Query the database to get the user's credentials
+            query = """
+                SELECT first_name, last_name, middle_initial, suffix, role, sex, birthdate, email
+                FROM Users_Info
+                WHERE email = %s AND password = %s
+            """
+            DB.mycursor.execute(query, (self.email, self.password))
+            result = DB.mycursor.fetchone()
 
-            self.role_label = self.profile_window.findChild(QLabel, "role_label")
-            if self.role_label:
-                self.role_label.setText((f"Role: {role_container[index]}"))
+            if result:
+                first_name, last_name, middle_initial, suffix, role, sex, birthdate, email = result
 
-            self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
-            if self.age_and_sex_label:
-                self.age_and_sex_label.setText((f"Age: {self.calculate_age(birthdate_container[index])} years old\n\nSex: {s_container[index]}"))
-            
-            self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
-            if self.email_label:
-                self.email_label.setText((f"{email_container[index]}"))
-
-            self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
-            if self.birthdate_label:
-                self.birthdate_label.setText((f"{birthdate_container[index]}"))
-
-            try:
-                # Query the database to get the user's credentials
-                query = """
-                    SELECT first_name, last_name, middle_initial, suffix, role, sex, birthdate, email
-                    FROM Users_Info
-                    WHERE email = %s
-                    """
-                DB.mycursor.execute(query, (self.email,))
-                result = DB.mycursor.fetchone()
-
-                if result:
-                    first_name, last_name, middle_initial, suffix, role, sex, birthdate, email = result
-                    self.name_label = self.profile_window.findChild(QLabel, "name_label")
+                self.name_label = self.profile_window.findChild(QLabel, "name_label")
                 if self.name_label:
-                    self.name_label.setText(f"Name: {first_name} {middle_initial} {last_name} {suffix}")
-                    self.role_label = self.profile_window.findChild(QLabel, "role_label")
+                    self.name_label.setText(f"Name: {first_name} {middle_initial or ''} {last_name} {suffix or ''}")
+
+                self.role_label = self.profile_window.findChild(QLabel, "role_label")
                 if self.role_label:
                     self.role_label.setText(f"Role: {role}")
-                    self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
+
+                self.age_and_sex_label = self.profile_window.findChild(QLabel, "age_and_sex_Label")
                 if self.age_and_sex_label:
                     self.age_and_sex_label.setText(f"Age: {self.calculate_age(birthdate)} years old\n\nSex: {sex}")
-                    self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
+
+                self.email_label = self.profile_window.findChild(QLabel, "email_label_2")
                 if self.email_label:
                     self.email_label.setText(email)
-                    self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
+
+                self.birthdate_label = self.profile_window.findChild(QLabel, "birthdate_label_2")
                 if self.birthdate_label:
                     self.birthdate_label.setText(str(birthdate))
-
-                else:
-                    error_msg_box = QMessageBox()
-                    error_msg_box.setIcon(QMessageBox.Warning)
-                    error_msg_box.setWindowTitle("Error")
-                    error_msg_box.setText("User credentials not found in the database.")
-                    error_msg_box.exec()
-
-            except mysql.connector.Error as err:
+            else:
                 error_msg_box = QMessageBox()
-                error_msg_box.setIcon(QMessageBox.Critical)
-                error_msg_box.setWindowTitle("Database Error")
-                error_msg_box.setText(f"An error occurred while fetching user credentials: {err.msg}")
+                error_msg_box.setIcon(QMessageBox.Warning)
+                error_msg_box.setWindowTitle("Error")
+                error_msg_box.setText("User credentials not found in the database.")
                 error_msg_box.exec()
 
+        except mysql.connector.Error as err:
+            error_msg_box = QMessageBox()
+            error_msg_box.setIcon(QMessageBox.Critical)
+            error_msg_box.setWindowTitle("Database Error")
+            error_msg_box.setText(f"An error occurred while fetching user credentials: {err.msg}")
+            error_msg_box.exec()
 
     def calculate_age(self, birthdate):
         if isinstance(birthdate, str):
@@ -1034,14 +1477,19 @@ class MainApp:
         age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
         return age    
 
-
     def show_edit_profile(self):
         self.edit_profile_window.show()
 
         # Connection of widgets
         self.edit_first_name = self.edit_profile_window.findChild(QLineEdit, "new_first_name_edit")
+        self.edit_first_name.setMaxLength(100)
+
         self.edit_last_name = self.edit_profile_window.findChild(QLineEdit, "new_last_name_edit")
+        self.edit_last_name.setMaxLength(100)
+
         self.edit_middle_initial = self.edit_profile_window.findChild(QLineEdit, "new_middle_initial_edit")
+        self.edit_middle_initial.setMaxLength(10)
+
         self.edit_suffix = self.edit_profile_window.findChild(QComboBox, "suffix_combobox")
         self.edit_suffix.setCurrentIndex(0)
 
@@ -1050,6 +1498,7 @@ class MainApp:
         self.new_others_radio = self.edit_profile_window.findChild(QRadioButton, "new_others_radio")
         
         self.new_others_edit = self.edit_profile_window.findChild(QLineEdit, "new_others_edit")
+        self.new_others_edit.setMaxLength(20)
         self.new_others_edit.setPlaceholderText("Please specify")
         self.new_others_edit.setEnabled(False)
 
@@ -1134,6 +1583,24 @@ class MainApp:
             self.cancel_btn.clicked.connect(self.edit_profile_window.close)
 
     def save_changes_with_profile(self):
+
+        if not self.edit_first_name.text().strip() or not self.edit_last_name.text().strip():
+            empty_fields_msg_box = QMessageBox()
+            empty_fields_msg_box.setIcon(QMessageBox.Warning)
+            empty_fields_msg_box.setWindowTitle("Empty Fields")
+            empty_fields_msg_box.setText("First Name and Last Name cannot be empty.")
+            empty_fields_msg_box.exec()
+            return
+
+        if self.new_others_radio.isChecked():
+            if self.new_others_edit.text().strip() == "":
+                others_empty_msg_box = QMessageBox()
+                others_empty_msg_box.setIcon(QMessageBox.Warning)
+                others_empty_msg_box.setWindowTitle("Empty Field")
+                others_empty_msg_box.setText("Please enter your credentials on Others.")
+                others_empty_msg_box.exec()
+                return
+
         save_change_msg_box = QMessageBox()
         save_change_msg_box.setIcon(QMessageBox.Warning)
         save_change_msg_box.setWindowTitle("Confirmation")
@@ -1162,10 +1629,9 @@ class MainApp:
                 elif self.new_others_radio.isChecked():
                     if self.new_others_edit:
                         new_s = self.new_others_edit.text()
-                else:
-                    new_s = ""
 
-                # Update temporary containers
+                # Update temporary containers 
+                # Keep an eye
                 first_name_container[index] = new_first_name
                 last_name_container[index] = new_last_name
                 middle_initial_container[index] = new_middle_initial
@@ -1213,6 +1679,117 @@ class MainApp:
             save_change_msg_box.close()
             self.show_edit_profile()
 
+    def change_fingerprint(self):
+        try:
+            if self.register_fingerprint_window:
+                self.register_fingerprint_window.show()
+            else:
+                QMessageBox.critical(None, "Error", "Fingerprint change window could not be loaded.")
+                return
+
+            self.skip_btn = self.register_fingerprint_window.findChild(QWidget, "skip_btn")
+            if self.skip_btn:
+                self.skip_btn.clicked.connect(self.register_fingerprint_window.close)
+
+            else:
+                QMessageBox.warning(None, "Error", "Skip button not found in the fingerprint window.")
+                return
+
+            self.cancel_btn = self.register_fingerprint_window.findChild(QWidget, "cancel_btn")
+            if self.cancel_btn:
+                self.cancel_btn.clicked.connect(self.register_fingerprint_window.close)
+            else:
+                QMessageBox.warning(None, "Error", "Cancel button not found in the fingerprint window.")
+                return
+
+            self.register_fingerprint_window.setWindowTitle("Change Fingerprint")
+            instruction_label = self.register_fingerprint_window.findChild(QLabel, "label")
+            if instruction_label:
+                instruction_label.setText("Please put your finger to the scanner to change your fingerprint.")
+
+            try:
+                self.fingerprint_scanner = ZKFP2()
+                self.fingerprint_scanner.Init()
+                self.fingerprint_scanner.OpenDevice(0)
+                self.fingerprint_scanner.Light("green")
+
+                self.templates = []
+                self.register = True
+
+            except ImportError:
+                QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
+                self.register_fingerprint_window.hide()
+                return
+
+            self.progress_bar = self.register_fingerprint_window.findChild(QProgressBar, "progress_bar")
+            if self.progress_bar:
+                self.progress_bar.setValue(0)
+                self.progress_bar.setMaximum(3)
+
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.check_fingerprint_scanner_for_change)
+            self.timer.start(100)  # Check every 100 milliseconds
+
+        except Exception as e:
+            print(f"Error during fingerprint change: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint change: {str(e)}")
+            self.register_fingerprint_window.hide()
+            return
+
+    def check_fingerprint_scanner_for_change(self):
+        try:
+            self.email = self.email_lineedit.text()
+            if not self.fingerprint_scanner:
+                QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
+                self.register_fingerprint_window.hide()
+                self.timer.stop()
+                return
+
+            capture = self.fingerprint_scanner.AcquireFingerprint()
+            if capture:
+                tmp, _ = capture
+                if tmp:  # Ensure tmp is not None or empty
+                    print(f"Fingerprint captured: {tmp}")  # Debugging log
+
+                    if len(self.templates) < 3:
+                        if not self.templates or self.fingerprint_scanner.DBMatch(self.templates[-1], tmp) > 0:
+                            self.fingerprint_scanner.Light("green")
+                            self.templates.append(tmp)
+
+                # Update progress bar in the GUI
+                if self.progress_bar:
+                    self.progress_bar.setValue(len(self.templates))
+
+                try:
+                    query = """
+                        UPDATE Users_Info
+                        SET fingerprint = %s
+                        WHERE email = %s
+                    """
+                    fingerprint_blob = bytes(tmp)  # Convert 'tmp' to binary format
+
+                    if self.email:
+                        DB.mycursor.execute(query, (fingerprint_blob, self.email))
+                        DB.conn.commit()
+                    else:
+                        print("Error: Email is not defined or not set.")
+
+                except mysql.connector.Error as db_err:
+                    QMessageBox.critical(None, "Database Error", f"Failed to save fingerprint: {db_err.msg}")
+
+                # Stop the timer and complete registration if 3 fingerprints are captured
+                if len(self.templates) >= 3:
+                    self.timer.stop()
+                    QMessageBox.information(None, "Success", "Fingerprint change completed successfully.")
+                    self.register_fingerprint_window.hide()
+
+        except Exception as e:
+            print(f"Error during fingerprint change: {str(e)}")  # Debugging log
+            QMessageBox.critical(None, "Error", f"An error occurred during fingerprint change: {str(e)}")
+            self.register_fingerprint_window.hide()
+            self.timer.stop()
+            return
+
     def show_select_role_with_data(self): # Update the database with role changes
         selected_row = self.user_table.currentRow()
         self.name = ""
@@ -1234,7 +1811,7 @@ class MainApp:
             if role_label:
                 role_label.setText((f"Current Role: {self.role}"))
 
-        if self.name != "Amiel Padasay":
+        if self.name != "AMIEL JOHN PADASAY":
             self.show_select_role()
         else:  
             no_change_msg_box = QMessageBox()
@@ -1245,7 +1822,6 @@ class MainApp:
             self.select_role_window.hide()
 
     def save_role_changes(self): # Save role changes to the database
-        global role_container
 
         change_role_msg_box = QMessageBox()
         change_role_msg_box.setIcon(QMessageBox.Warning)
@@ -1280,9 +1856,6 @@ class MainApp:
                 new_role = "Employee"
             else:
                 new_role = role  # Default to the current role if no selection is made
-
-            # Update the role in the role_container
-            role_container[selected_row] = new_role
 
             # Update the role in the table
             if role_item:
@@ -1352,6 +1925,7 @@ class MainApp:
 
     #Manager's Menu
     def setup_manager_dashboard(self):
+    
         self.log_out_button = self.current_dashboard.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
@@ -1467,6 +2041,14 @@ class MainApp:
         if self.task_calendar_2:
             self.task_calendar_2.selectionChanged.connect(self.show_tasks_for_selected_date)
             self.color_code_calendar_by_priority_2()
+        
+        self.show_task_completion_pie_chart()
+
+        self.search_bar_tasks = self.current_dashboard.findChild(QLineEdit, "search_bar_tasks")
+
+        self.search_btn = self.current_dashboard.findChild(QPushButton, "search_btn")
+        if self.search_btn:
+            self.search_btn.clicked.connect(self.search_tasks)
 
         # Assign Task
         self.assign_task_button = self.current_dashboard.findChild(QWidget, "assigntask_btn")
@@ -1486,6 +2068,8 @@ class MainApp:
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
 
+        self.EmailScheduler.start_task_reminder_timer()
+
     def color_code_calendar_by_priority(self):
         try:
             # Fetch all tasks with their due dates and priority levels
@@ -1504,11 +2088,11 @@ class MainApp:
 
                 # Determine the color based on priority level
                 if priority_level.lower() == "low":
-                    color = QColor("green")
+                    color = QColor("lightgreen")
                 elif priority_level.lower() == "medium":
                     color = QColor("yellow")
                 elif priority_level.lower() == "high":
-                    color = QColor("red")
+                    color = QColor("#E25557")
                 else:
                     color = QColor("white")  # Default color for unknown priority
 
@@ -1538,11 +2122,11 @@ class MainApp:
 
                 # Determine the color based on priority level
                 if priority_level.lower() == "low":
-                    color = QColor("green")
+                    color = QColor("lightgreen")
                 elif priority_level.lower() == "medium":
                     color = QColor("yellow")
                 elif priority_level.lower() == "high":
-                    color = QColor("red")
+                    color = QColor("#E25557")
                 else:
                     color = QColor("white")  # Default color for unknown priority
 
@@ -1572,6 +2156,7 @@ class MainApp:
                 self.calendar_task_table.setRowCount(len(tasks_info))
                 self.calendar_task_table.setColumnCount(6)
                 self.calendar_task_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+                self.calendar_task_table.setVerticalHeaderLabels([])
 
             # Populate the table with tasks for the selected date
             for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
@@ -1585,7 +2170,7 @@ class MainApp:
         except mysql.connector.Error as err:
             QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching tasks: {err.msg}")
 
-    def show_assign_task(self): # Next function to be created
+    def show_assign_task(self): # Created line edit limits
         global email_container
         global first_name_container
         global last_name_container
@@ -1604,12 +2189,18 @@ class MainApp:
 
         # Inputs for assigning tasks
         self.task_name_edit = self.assign_task_window.findChild(QLineEdit, "taskname_edit")
+        self.task_name_edit.setMaxLength(255)        
+
         self.task_description_edit = self.assign_task_window.findChild(QTextEdit, "taskreq_edit")
+        self.task_description_edit.textChanged.connect(self.limit_task_description_length)
 
         self.prioritylevel_combobox = self.assign_task_window.findChild(QComboBox, "prioritylevel_combobox")
         self.prioritylevel_combobox.setCurrentIndex(0)
 
+        # Connect the search bar's textChanged signal to this method
         self.search_bar_assign = self.assign_task_window.findChild(QLineEdit, "search_bar_assign")
+        if self.search_bar_assign:
+            self.search_bar_assign.textChanged.connect(self.search_assign)
 
         # Replace the list widget with a table widget
         self.assign_member_group_table = self.assign_task_window.findChild(QTableWidget, "assign_member_group_list")
@@ -1617,16 +2208,31 @@ class MainApp:
         self.assign_member_group_table.setColumnCount(2)
         self.assign_member_group_table.setHorizontalHeaderLabels(["", "Name"])
 
-        # Populate the table with data
-        for i in range(len(email_container)):
-            #Create the first column with checkboxes
-            checkbox_item = QTableWidgetItem()
-            checkbox_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-            checkbox_item.setCheckState(Qt.Unchecked)
-            self.assign_member_group_table.setItem(i, 0, checkbox_item)
-            # Create the second column with names and emails
-            self.assign_member_group_table.setItem(i, 1, QTableWidgetItem(first_name_container[i] + " " + last_name_container[i]))
-            self.assign_member_group_table.setItem(i, 2, QTableWidgetItem(email_container[i]))
+        # Fetch only employees from the database
+        try:
+            query = """
+            SELECT first_name, last_name, email
+            FROM Users_Info
+            WHERE role = 'Employee'
+            """
+            DB.mycursor.execute(query)
+            employees = DB.mycursor.fetchall()
+
+            # Populate the table with employee data
+            self.assign_member_group_table.setRowCount(len(employees))
+
+            for i, (first_name, last_name, email) in enumerate(employees):
+                # Create the first column with checkboxes
+                checkbox_item = QTableWidgetItem()
+                checkbox_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                checkbox_item.setCheckState(Qt.Unchecked)
+                self.assign_member_group_table.setItem(i, 0, checkbox_item)
+                # Create the second column with names and emails
+                self.assign_member_group_table.setItem(i, 1, QTableWidgetItem(f"{first_name} {last_name}"))
+                self.assign_member_group_table.setItem(i, 2, QTableWidgetItem(email))
+
+        except mysql.connector.Error as err:
+            QMessageBox.critical(self.assign_task_window, "Database Error", f"An error occurred while fetching employees: {err.msg}")
 
         # Enable multi-row selection
         self.assign_member_group_table.itemChanged.connect(self.handle_checkbox_change)
@@ -1652,13 +2258,40 @@ class MainApp:
         if self.cancel_button:
             self.cancel_button.clicked.connect(self.assign_task_window.hide)
 
+    def limit_task_description_length(self):
+        max_length = 1000
+        current_text = self.task_description_edit.toPlainText()
+        if len(current_text) > max_length:
+            self.task_description_edit.blockSignals(True)
+            self.task_description_edit.setPlainText(current_text[:max_length])
+            self.task_description_edit.blockSignals(False)
+            cursor = self.task_description_edit.textCursor()
+            cursor.movePosition(cursor.End)
+            self.task_description_edit.setTextCursor(cursor)
+
+    def search_assign(self):
+        if not self.assign_member_group_table:
+            return  # Exit if the table is not initialized
+
+        search_text = self.search_bar_assign.text().strip().lower()
+
+        if self.assign_member_group_table:
+            for row in range(self.assign_member_group_table.rowCount()):
+                match_found = False
+                for col in range(self.assign_member_group_table.columnCount()):
+                    item = self.assign_member_group_table.item(row, col)
+                    if item and search_text in item.text().strip().lower():
+                        match_found = True
+                        break
+                self.assign_member_group_table.setRowHidden(row, not match_found)
+
     def handle_checkbox_change(self, item):
         if item.column() == 0 and item.checkState() == Qt.Checked:
             for col in range(self.assign_member_group_table.columnCount()):
                 self.assign_member_group_table.item(item.row(), col).setSelected(True)
         elif item.column() == 0 and item.checkState() == Qt.Unchecked:
             for col in range(self.assign_member_group_table.columnCount()):
-                self.assign_member_group_table.item(item.row(), col).setSelected(False)
+                self.assign_member_group_table.setRangeSelected(QTableWidgetSelectionRange(item.row(), 0, item.row(), self.assign_member_group_table.columnCount() - 1), False)
 
     def confirm_task(self):
         # Get the task name and description
@@ -1916,8 +2549,6 @@ class MainApp:
                     except mysql.connector.Error as err:
                         QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing pending tasks: {err.msg}")
 
-                    remove_task_msg_box.close()
-
                 elif remove_result == QMessageBox.No:
                     remove_task_msg_box.close()
                     self.setup_manager_dashboard()
@@ -1984,6 +2615,8 @@ class MainApp:
         if self.task_calendar_2:
             self.color_code_calendar_by_priority_2()
 
+        self.show_task_completion_pie_chart()
+
         self.submit_task_button = self.current_dashboard.findChild(QWidget, "submit_task_btn")
         if self.submit_task_button:
             self.submit_task_button.clicked.connect(self.show_submit_task)
@@ -2019,7 +2652,9 @@ class MainApp:
         self.submit_due_date_task = self.submit_task_window.findChild(QLabel, "duedate_label_input")
         self.submit_btn = self.submit_task_window.findChild(QPushButton, "submit_btn")
         self.cancel_btn = self.submit_task_window.findChild(QPushButton, "cancel_btn")
+
         self.link_requirement_edit = self.submit_task_window.findChild(QLineEdit, "link_requirement_edit")
+        self.link_requirement_edit.setMaxLength(1000)
 
         selected_row = self.currenttask_table.currentRow() 
         submit_index = selected_row
@@ -2030,7 +2665,7 @@ class MainApp:
             SELECT task_name, task_requirement, priority_level, task_description, due_date_time
             FROM Task_Storage
             WHERE status = 'Pending'
-             LIMIT %s, 1
+            LIMIT %s, 1
             """
             DB.mycursor.execute(query, (int(submit_index),))
             result = DB.mycursor.fetchone()
@@ -2057,6 +2692,8 @@ class MainApp:
             self.submit_btn.clicked.connect(lambda: self.confirm_submit_task_to_db(submit_index))
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.submit_task_window.close)
+
+        self.EmailScheduler.start_task_reminder_timer()
 
     def confirm_submit_task_to_db(self, submit_index):
         if self.link_requirement_edit and self.link_requirement_edit.text().strip():
@@ -2150,7 +2787,10 @@ class MainApp:
         self.submit_file_due_date_task = self.submit_file_task_window.findChild(QLabel, "duedate_label_2")
         self.submit_file_btn = self.submit_file_task_window.findChild(QPushButton, "submit_btn")
         self.submit_file_cancel_btn = self.submit_file_task_window.findChild(QPushButton, "cancel_btn")
+
         self.file_path_edit = self.submit_file_task_window.findChild(QLineEdit, "file_path_edit")
+        self.file_path_edit.setMaxLength(1000)
+
         self.browse_file_btn = self.submit_file_task_window.findChild(QPushButton, "browse_file_btn")
 
         selected_row = self.currenttask_table.currentRow()
@@ -2200,9 +2840,12 @@ class MainApp:
         file_path, _ = file_dialog.getOpenFileName(self.submit_file_task_window, "Select File", "", "All Files (*)")
         if file_path:
             self.file_path_edit.setText(file_path)
+            # Read the file data and store it temporarily
+            with open(file_path, "rb") as file:
+                self.selected_file_data = file.read()
 
     def confirm_submit_file_task(self, selected_row):
-        if self.file_path_edit and self.file_path_edit.text().strip():
+        if hasattr(self, 'selected_file_data') and self.selected_file_data:
             submit_index = selected_row
 
             # Message box
@@ -2220,12 +2863,7 @@ class MainApp:
 
             if submit_result == QMessageBox.Yes:
                 try:
-                    # Read the file data
-                    file_path = self.file_path_edit.text()
-                    with open(file_path, "rb") as file:
-                        file_data = file.read()
-
-                    # Update the task status and insert the submitted file
+                    # Update the task status and insert the submitted file data
                     update_query = """
                         UPDATE Task_Storage
                         SET submitted_file = %s, status = %s, submitted_date_time = NOW()
@@ -2238,7 +2876,7 @@ class MainApp:
                         task_name_container = [task[0] for task in DB.mycursor.fetchall()]
 
                     DB.mycursor.execute(update_query, (
-                        self.link_requirement_edit.text(),
+                        self.selected_file_data,
                         "Completed - Not Validated",
                         task_name_container[submit_index]
                     ))
@@ -2257,7 +2895,8 @@ class MainApp:
                     success_msg_box.setText("Task has been successfully submitted.")
                     success_msg_box.exec()
 
-                    # Clear the file path edit
+                    # Clear the file data
+                    self.selected_file_data = None
                     self.file_path_edit.setText("")
 
                 except Exception as e:
@@ -2319,13 +2958,13 @@ class MainApp:
         self.setup_login_page()
     
     def log_out(self):
+        self.current_dashboard.hide()
         self.login_window.show()
+        self.setup_login_page()
         self.log_in_stacked.setCurrentIndex(1)
 
         self.email_lineedit.setText("")
         self.password_lineedit.setText("")
-
-        self.current_dashboard.hide()
 
     def run(self):
         self.login_window.show()
