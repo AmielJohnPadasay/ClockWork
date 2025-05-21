@@ -39,7 +39,7 @@ manager_role = "Manager"
 manager_birthdate = "2005-09-18"
 manager_sex = "Male"
 
-employee_email = "francia.padasay001@deped.gov.ph"
+employee_email = "franciarazopadasay@gmail.com"
 employee_password = "12345678"
 employee_first_name = "Quincy"
 employee_last_name = "Domingo"
@@ -122,7 +122,7 @@ class Clockwork_Database:
         self.conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="Pads_2004120"  # Pads_2004120 amiel_2004
+            password="amiel_2004"  # Pads_2004120 amiel_2004
         )
         self.mycursor = self.conn.cursor()
         self.initialize_database()
@@ -229,6 +229,99 @@ DB.create_account_to_db(email, password, first_name, last_name, middle_initial, 
 DB.create_account_to_db(manager_email, manager_password, manager_first_name, manager_last_name, manager_middle_initial, manager_suffix, manager_birthdate, manager_sex, manager_role)
 DB.create_account_to_db(employee_email, employee_password, employee_first_name, employee_last_name, employee_middle_initial, employee_suffix, employee_birthdate, employee_sex, employee_role)
 
+class EmailScheduler:
+    def __init__(self, parent=None):
+        self.parent = parent  # Reference to MainApp if needed
+        self.reminder_timer = None
+        self.app_password = "uuye ugda doxg vhob"
+        self.sender_email = "amiel.padasay004@gmail.com"
+
+    def send_task_reminders(self):
+        """
+        Sends email reminders to employees for pending tasks that are due in 1 day.
+        """
+        try:
+            # Fetch tasks that are pending and due in 1 day
+            query = """
+                SELECT task_name, group_members, due_date_time
+                FROM Task_Storage
+                WHERE status = 'Pending'
+            """
+            DB.mycursor.execute(query)
+            tasks = DB.mycursor.fetchall()
+            now = datetime.datetime.now()
+            for task_name, group_members, due_date_time in tasks:
+                if due_date_time:
+                    # Parse due_date_time robustly
+                    due_date = None
+                    if isinstance(due_date_time, str):
+                        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                            try:
+                                due_date = datetime.datetime.strptime(due_date_time, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        if due_date is None:
+                            continue
+                    elif isinstance(due_date_time, datetime.datetime):
+                        due_date = due_date_time
+                    elif isinstance(due_date_time, datetime.date):
+                        due_date = datetime.datetime.combine(due_date_time, datetime.time.min)
+                    else:
+                        continue
+
+                    delta = due_date - now
+                    if datetime.timedelta(0) < delta <= datetime.timedelta(days=1):
+                        # Send email to each group member
+                        member_names = [name.strip() for name in group_members.split(",") if name.strip()]
+                        for member_name in member_names:
+                            # Get email of the member
+                            DB.mycursor.execute(
+                                "SELECT email FROM Users_Info WHERE CONCAT(first_name, ' ', last_name) = %s",
+                                (member_name,)
+                            )
+                            result = DB.mycursor.fetchone()
+                            if result:
+                                recipient_email = result[0]
+                                # Compose and send the email
+                                msg = EmailMessage()
+                                msg["Subject"] = f"Task Reminder: '{task_name}' is due soon"
+                                msg["From"] = self.sender_email
+                                msg["To"] = recipient_email
+                                msg.set_content(
+                                    f"Dear {member_name},\n\n"
+                                    f"This is a reminder that your task '{task_name}' is due on {due_date.strftime('%Y-%m-%d %H:%M')}.\n"
+                                    "Please make sure to complete and submit it on time.\n\n"
+                                    "Best regards,\nClockWork System"
+                                )
+                                try:
+                                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                                        smtp.login(self.sender_email, self.app_password)
+                                        smtp.send_message(msg)
+                                    print(f"Reminder sent to {recipient_email} for task '{task_name}'.")
+                                except Exception as e:
+                                    print(f"Failed to send email to {recipient_email}: {e}")
+        except Exception as e:
+            print(f"Error in send_task_reminders: {e}")
+
+    def start_task_reminder_timer(self):
+        """
+        Starts a QTimer to run send_task_reminders periodically in the background.
+        Ensures only one timer is running and works after the event loop starts.
+        """
+        if self.reminder_timer is not None:
+            self.reminder_timer.stop()
+            self.reminder_timer.deleteLater()
+            self.reminder_timer = None
+
+        self.reminder_timer = QTimer()
+        self.reminder_timer.setInterval(24 * 60 * 60 * 1000)  # 24 hours
+        self.reminder_timer.timeout.connect(self.send_task_reminders)
+        self.reminder_timer.start()
+        # Optionally, send reminders once at startup
+        self.send_task_reminders()
+
+
 class MainApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
@@ -290,6 +383,9 @@ class MainApp:
         self.register_fingerprint_window.setWindowModality(Qt.ApplicationModal)
 
         self.setup_login_page()  # Setup the login page
+
+        self.EmailScheduler = EmailScheduler()
+        self.EmailScheduler.start_task_reminder_timer()
 
     # Log-In Page
     def setup_login_page(self):
@@ -1052,71 +1148,6 @@ class MainApp:
         except mysql.connector.Error as err:
             QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching task data: {err.msg}")
 
-    def send_task_reminders(self):
-        self.app_password = "uuye ugda doxg vhob"
-        """
-        Sends email reminders to employees for pending tasks that are due in 1 day.
-        """
-        try:
-            # Fetch tasks that are pending and due in 1 day
-            query = """
-                SELECT task_name, group_members, due_date_time
-                FROM Task_Storage
-                WHERE status = 'Pending'
-            """
-            DB.mycursor.execute(query)
-            tasks = DB.mycursor.fetchall()
-            now = datetime.datetime.now()
-            for task_name, group_members, due_date_time in tasks:
-                if due_date_time:
-                    # Check if due date is exactly 1 day from now
-                    if isinstance(due_date_time, str):
-                        due_date = datetime.datetime.strptime(due_date_time, "%Y-%m-%d %H:%M:%S")
-                    else:
-                        due_date = due_date_time
-                    delta = due_date - now
-                    if 0 < delta.days <= 1:
-                        # Send email to each group member
-                        member_names = [name.strip() for name in group_members.split(",") if name.strip()]
-                        for member_name in member_names:
-                            # Get email of the member
-                            DB.mycursor.execute(
-                                "SELECT email FROM Users_Info WHERE CONCAT(first_name, ' ', last_name) = %s",
-                                (member_name,)
-                            )
-                            result = DB.mycursor.fetchone()
-                            if result:
-                                recipient_email = result[0]
-                                # Compose and send the email
-                                msg = EmailMessage()
-                                msg["Subject"] = f"Task Reminder: '{task_name}' is due soon"
-                                msg["From"] = email  # Use the global sender email
-                                msg["To"] = recipient_email
-                                msg.set_content(
-                                    f"Dear {member_name},\n\n"
-                                    f"This is a reminder that your task '{task_name}' is due on {due_date.strftime('%Y-%m-%d %H:%M')}.\n"
-                                    "Please make sure to complete and submit it on time.\n\n"
-                                    "Best regards,\nClockWork System"
-                                )
-                                try:
-                                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                                        smtp.login(email, self.app_password)
-                                        smtp.send_message(msg)
-                                    print(f"Reminder sent to {recipient_email} for task '{task_name}'.")
-                                except Exception as e:
-                                    print(f"Failed to send email to {recipient_email}: {e}")
-        except Exception as e:
-            print(f"Error in send_task_reminders: {e}")
-
-    def start_task_reminder_timer(self):
-        """
-        Starts a QTimer to run send_task_reminders periodically in the background.
-        """
-        self.reminder_timer = QTimer()
-        self.reminder_timer.timeout.connect(self.send_task_reminders)
-        # Set interval to 1 hour (3600000 ms), adjust as needed
-        self.reminder_timer.start(3600000)
-
     def search_tasks(self):
         search_text = self.search_bar_tasks.text().strip().lower()
         if self.pendingtask_table:
@@ -1705,7 +1736,7 @@ class MainApp:
 
     def check_fingerprint_scanner_for_change(self):
         try:
-            self.email = self.email_edit.text()
+            self.email = self.email_lineedit.text()
             if not self.fingerprint_scanner:
                 QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
                 self.register_fingerprint_window.hide()
