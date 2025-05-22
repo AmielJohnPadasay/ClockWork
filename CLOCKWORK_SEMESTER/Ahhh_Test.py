@@ -385,7 +385,6 @@ class MainApp:
         self.setup_login_page()  # Setup the login page
 
         self.EmailScheduler = EmailScheduler()
-        self.EmailScheduler.start_task_reminder_timer()
 
     # Log-In Page
     def setup_login_page(self):
@@ -984,6 +983,7 @@ class MainApp:
         # Similar setup for pending and completed task tables
         self.pendingtask_table = self.current_dashboard.findChild(QTableWidget, "pendingtasks_table")
         self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
+        self.unvalidtask_table = self.current_dashboard.findChild(QTableWidget, "unvalid_tasks_table")
 
         if self.pendingtask_table:
             pending_tasks = [task for task in tasks_info if task[3] in "Pending"]  # Filter tasks with status "Pending"
@@ -1001,7 +1001,7 @@ class MainApp:
                     self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
         if self.completedtask_table:
-            completed_tasks = [task for task in tasks_info if task[3] in ["Completed - Not Validated", "Completed - Validated"]]  # Filter tasks with completed status
+            completed_tasks = [task for task in tasks_info if task[3] in ["Completed - Validated"]]  # Filter tasks with completed status
             self.completedtask_table.setRowCount(len(completed_tasks))
             self.completedtask_table.setColumnCount(6)
             self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
@@ -1014,6 +1014,20 @@ class MainApp:
                     self.completedtask_table.setItem(i, 3, QTableWidgetItem(status))
                     self.completedtask_table.setItem(i, 4, QTableWidgetItem(group_members))
                     self.completedtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+        if self.unvalidtask_table:
+            current_tasks = [task for task in tasks_info if task[3] in ["Completed - Not Validated"]]  # Filter tasks with status "Completed - Not Validated"
+            self.unvalidtask_table.setRowCount(len(current_tasks))
+            self.unvalidtask_table.setColumnCount(6)
+            self.unvalidtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+            for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(current_tasks):
+                self.unvalidtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                self.unvalidtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                self.unvalidtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                self.unvalidtask_table.setItem(i, 3, QTableWidgetItem(status))
+                self.unvalidtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                self.unvalidtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
         # Connect buttons and other UI elements as before
         self.stacked_supervisor = self.current_dashboard.findChild(QStackedWidget, "stacked_Supervisor")
@@ -1198,10 +1212,12 @@ class MainApp:
     
     def update_validate_btn_visibility(self, index):
         if self.validate_btn:
-            if index == 1:
+            if index == 2:
                 self.validate_btn.hide()
-            elif index == 0:
+            elif index == 1:
                 self.validate_btn.show()
+            else:
+                self.validate_btn.hide()
 
     def open_link_browser(self):
         link = self.link_submitted_input.text()
@@ -1230,7 +1246,7 @@ class MainApp:
         self._validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
         self.cancel_btn = self.validate_task_window.findChild(QPushButton, "cancel_btn")
 
-        selected_row = self.completedtask_table.currentRow()
+        selected_row = self.unvalidtask_table.currentRow()
 
         if selected_row != -1:  # Ensure a row is selected
             try:
@@ -1292,6 +1308,7 @@ class MainApp:
                 QMessageBox.critical(self.validate_task_window, "Database Error", f"An error occurred while fetching task details: {err.msg}")
         else:
             QMessageBox.warning(self.validate_task_window, "Error", "No task selected.")
+            self.validate_task_window.close()
 
         # Buttons
         if self._validate_btn:
@@ -1337,7 +1354,7 @@ class MainApp:
             QMessageBox.critical(self.validate_task_window, "Error", f"An unexpected error occurred: {str(e)}")
 
     def confirm_validate_task(self):
-        selected_row = self.completedtask_table.currentRow()
+        selected_row = self.unvalidtask_table.currentRow()
         validate_index = selected_row
 
         valid_msg_box = QMessageBox()
@@ -1374,9 +1391,6 @@ class MainApp:
                     """
                 DB.mycursor.execute(update_query, ("Completed - Validated", task_name))
                 DB.conn.commit()
-
-                # Update the status in the completed task table
-                self.completedtask_table.setItem(validate_index, 3, QTableWidgetItem("Completed - Validated"))
 
                 # Show success message
                 success_msg_box = QMessageBox()
@@ -1975,7 +1989,7 @@ class MainApp:
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "currenttask_table")
         if self.currenttask_table:
-            current_tasks = [task for task in tasks_info if task[3] in ["Pending", "Completed - Not Validated"]]  # Filter tasks with status "Pending"
+            current_tasks = [task for task in tasks_info if task[3] in ["Pending"]]  # Filter tasks with status "Pending"
             self.currenttask_table.setRowCount(len(current_tasks))
             self.currenttask_table.setColumnCount(6)
             self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
@@ -1987,6 +2001,22 @@ class MainApp:
                 self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
                 self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
                 self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+        self.unvalidtask_table = self.current_dashboard.findChild(QTableWidget, "unvalid_tasks_table")
+        if self.unvalidtask_table:
+            current_tasks = [task for task in tasks_info if task[3] in ["Completed - Not Validated"]]  # Filter tasks with status "Pending"
+            self.unvalidtask_table.setRowCount(len(current_tasks))
+            self.unvalidtask_table.setColumnCount(6)
+            self.unvalidtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+
+            for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(current_tasks):
+                self.unvalidtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                self.unvalidtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                self.unvalidtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                self.unvalidtask_table.setItem(i, 3, QTableWidgetItem(status))
+                self.unvalidtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                self.unvalidtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
 
         # Fetch data from Task_Storage table for completed tasks
         try:
@@ -2004,7 +2034,7 @@ class MainApp:
 
         self.completedtask_table = self.current_dashboard.findChild(QTableWidget, "completedtasks_table")
         if self.completedtask_table:
-            completed_tasks = [task for task in completed_tasks_info if task[3] in ["Completed - Not Validated", "Completed - Validated"]]  # Filter tasks with status "Pending"
+            completed_tasks = [task for task in completed_tasks_info if task[3] in ["Completed - Validated"]]  # Filter tasks with status "Pending"
             self.completedtask_table.setRowCount(len(completed_tasks))
             self.completedtask_table.setColumnCount(6)
             self.completedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])

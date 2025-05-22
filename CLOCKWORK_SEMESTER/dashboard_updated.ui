@@ -215,7 +215,7 @@
        <number>0</number>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="dashboard">
        <layout class="QGridLayout" name="gridLayout_14">
@@ -349,6 +349,35 @@
               <layout class="QGridLayout" name="gridLayout_10">
                <item row="0" column="0">
                 <widget class="QTableWidget" name="completedtasks_table">
+                 <property name="horizontalScrollMode">
+                  <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
+                 </property>
+                 <property name="rowCount">
+                  <number>0</number>
+                 </property>
+                 <attribute name="horizontalHeaderCascadingSectionResizes">
+                  <bool>true</bool>
+                 </attribute>
+                 <attribute name="horizontalHeaderDefaultSectionSize">
+                  <number>200</number>
+                 </attribute>
+                 <attribute name="horizontalHeaderStretchLastSection">
+                  <bool>true</bool>
+                 </attribute>
+                 <attribute name="verticalHeaderDefaultSectionSize">
+                  <number>50</number>
+                 </attribute>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="tab_3">
+              <attribute name="title">
+               <string>Unvalidated Tasks</string>
+              </attribute>
+              <layout class="QGridLayout" name="gridLayout">
+               <item row="0" column="0">
+                <widget class="QTableWidget" name="unvalid_tasks_table">
                  <property name="horizontalScrollMode">
                   <enum>QAbstractItemView::ScrollMode::ScrollPerPixel</enum>
                  </property>
