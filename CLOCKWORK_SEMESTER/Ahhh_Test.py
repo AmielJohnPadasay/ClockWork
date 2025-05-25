@@ -5,7 +5,7 @@ import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget,
                                QTableWidgetItem, QRadioButton, QDateEdit, QTabWidget, QTimeEdit,
-                               QTextEdit, QTextBrowser, QProgressBar, QToolButton)
+                               QTextEdit, QTextBrowser, QProgressBar)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog, QCalendarWidget
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, QDate, QTimer
@@ -1163,7 +1163,7 @@ class MainApp:
 
         self.check_task_button = self.current_dashboard.findChild(QWidget, "check_task_btn")
         if self.check_task_button:
-            self.check_task_button.clicked.connect(self.check_task)
+            self.check_task_button.clicked.connect(self.check_completed_task)
 
         # self.EmailScheduler.start_task_reminder_timer() Need to be refined!!
 
@@ -1277,11 +1277,99 @@ class MainApp:
         if self.validate_btn:
             if index == 2:
                 self.validate_btn.hide()
+                self.check_task_button.hide()
             elif index == 1:
                 self.validate_btn.show()
+                self.check_task_button.hide()
             elif index == 0:
                 self.validate_btn.hide()
-                self.check_task_button.show()
+                if hasattr(self, 'check_task_button') and self.check_task_button:
+                    self.check_task_button.show()
+
+    def check_completed_task(self):
+        self.validate_task_window.show()
+
+        # Connection of widgets
+        self.check_name_task = self.validate_task_window.findChild(QLabel, "taskname_label")
+        self.check_req_task = self.validate_task_window.findChild(QLabel, "req_task_label_input")
+        self.check_prioritylevel = self.validate_task_window.findChild(QLabel, "prioritylevel_label_input")
+        self.check_description_task = self.validate_task_window.findChild(QTextBrowser, "des_task_view")
+        self.check_due_date_task = self.validate_task_window.findChild(QLabel, "duedate_label_input")
+        self.link_submitted_input = self.validate_task_window.findChild(QLabel, "link_submitted_input")
+        self.link_submitted_label = self.validate_task_window.findChild(QLabel, "link_submitted_label")
+        self.download_file_btn = self.validate_task_window.findChild(QPushButton, "download_file_btn")
+        self.open_link_btn = self.validate_task_window.findChild(QPushButton, "openlink_btn")
+        self._validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
+        self.cancel_btn = self.validate_task_window.findChild(QPushButton, "cancel_btn")
+
+        selected_row = self.completedtask_table.currentRow()
+
+        if selected_row != -1:  # Ensure a row is selected
+            try:
+                # Fetch the task details from the database
+                query = """
+                    SELECT task_name, task_requirement, priority_level, task_description, due_date_time, submitted_link, submitted_file
+                    FROM Task_Storage
+                    WHERE status = 'Completed - Validated'
+                    LIMIT 1 OFFSET %s
+                """
+                DB.mycursor.execute(query, (selected_row,))
+                result = DB.mycursor.fetchone()
+
+                if result:
+                    task_name, task_requirement, priority_level, task_description, due_date_time, submitted_link, submitted_file = result
+                    if self.check_name_task:
+                        self.check_name_task.setText(task_name)
+                    if self.check_req_task:
+                        self.check_req_task.setText(task_requirement)
+                    if self.check_prioritylevel:
+                        self.check_prioritylevel.setText(priority_level)
+                    if self.check_description_task:
+                        self.check_description_task.setText(task_description)
+                    if self.check_due_date_task:
+                        self.check_due_date_task.setText(str(due_date_time))
+
+                    # Handle task requirement type
+                    if task_requirement == "Web Link":
+                        if self.link_submitted_label:
+                            self.link_submitted_label.setText("Link Submitted:")
+                        if self.link_submitted_input:
+                            self.link_submitted_input.setText(submitted_link if submitted_link else "No link available")
+                        if self.open_link_btn:
+                            self.open_link_btn.show()
+                            self.open_link_btn.clicked.connect(self.open_link_browser)
+                        if self.download_file_btn:
+                            self.download_file_btn.hide()
+                        if self._validate_btn:
+                            self._validate_btn.hide()
+
+                    elif task_requirement == "File":
+                        if self.link_submitted_label:
+                            self.link_submitted_label.setText("File Submitted:")
+                        if self.link_submitted_input:
+                            self.link_submitted_input.setText(submitted_file.name if hasattr(submitted_file, 'name') else (submitted_file if isinstance(submitted_file, str) else "Submitted File"))
+                        if self.open_link_btn:
+                            self.open_link_btn.hide()
+                        if self._validate_btn:
+                            self._validate_btn.hide()
+                    else:
+                        if self.link_submitted_input:
+                            self.link_submitted_input.setText("No submission available")
+                        if self.download_file_btn:
+                            self.download_file_btn.hide()
+                        if self.open_link_btn:
+                            self.open_link_btn.hide()
+                else:
+                    QMessageBox.warning(self.validate_task_window, "Error", "Task not found in the database.")
+            except mysql.connector.Error as err:
+                QMessageBox.critical(self.validate_task_window, "Database Error", f"An error occurred while fetching task details: {err.msg}")
+        else:
+            QMessageBox.warning(self.validate_task_window, "Error", "No task selected.")
+            self.validate_task_window.close()
+
+        # Buttons
+        if self.cancel_btn:
+            self.cancel_btn.clicked.connect(self.validate_task_window.close)
 
     def open_link_browser(self):
         link = self.link_submitted_input.text()
