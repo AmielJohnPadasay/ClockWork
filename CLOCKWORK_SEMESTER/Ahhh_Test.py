@@ -5,7 +5,7 @@ import webbrowser # For browsing online links
 from mysql.connector import errorcode as err
 from PySide6.QtWidgets import (QApplication, QWidget, QStackedWidget, QComboBox, QLineEdit, QTableWidget,
                                QTableWidgetItem, QRadioButton, QDateEdit, QTabWidget, QTimeEdit,
-                               QTextEdit, QTextBrowser, QProgressBar)
+                               QTextEdit, QTextBrowser, QProgressBar, QToolButton)
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, QDialog, QFileDialog, QCalendarWidget
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, QDate, QTimer
@@ -219,6 +219,7 @@ class Clockwork_Database:
             self.mycursor.execute(query, values)
             self.conn.commit()
             print("Account successfully added to the database.")
+            
         except mysql.connector.Error as err:
             self.errorDisplay(err.errno, err.sqlstate, err.msg)
 
@@ -397,8 +398,10 @@ class MainApp:
         self.login_window.show()
 
         self.log_in_stacked = self.login_window.findChild(QStackedWidget, "log_in_stacked")
-        self.log_in_stacked.setCurrentIndex(1)
 
+        self.log_in_stacked.currentChanged.connect(self.handle_login_stacked_index_changed)
+
+        self.log_in_stacked.setCurrentIndex(1)
         self.log_in_with_fingerprint()
 
         self.log_in_credentials_btn = self.login_window.findChild(QWidget, "log_in_credentials_btn")
@@ -426,6 +429,24 @@ class MainApp:
         self.email_lineedit.textChanged.connect(lambda: None)
         self.password_lineedit.textChanged.connect(lambda: None)
 
+    # Set up logic to handle stacked widget index changes for fingerprint scanner
+    def handle_login_stacked_index_changed(self, index):
+            if index == 0:
+                # Shut down fingerprint scanner if running
+                if hasattr(self, 'timer') and self.timer:
+                    self.timer.stop()
+                    self.timer = None
+                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                    try:
+                        self.fingerprint_scanner.CloseDevice()
+                        self.fingerprint_scanner.Terminate()
+                    except Exception:
+                        pass
+                    self.fingerprint_scanner = None
+            elif index == 1:
+                # Turn on fingerprint scanner
+                self.log_in_with_fingerprint()
+
     def log_in_with_fingerprint(self):
         try:
             self.log_in_stacked.setCurrentIndex(1)
@@ -451,7 +472,25 @@ class MainApp:
                 QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
                 return
 
-            capture = self.fingerprint_scanner.AcquireFingerprint()
+            try:
+                capture = self.fingerprint_scanner.AcquireFingerprint()
+            except Exception as e:
+                # Catch invalid handle or device errors from ZKFP2
+                if "handle" in str(e).lower() or "invalid" in str(e).lower():
+                    QMessageBox.critical(None, "Scanner Error", "Fingerprint scanner handle is invalid or device is not connected.\nPlease reconnect the scanner and restart the application.")
+                else:
+                    QMessageBox.critical(None, "Scanner Error", f"An error occurred: {str(e)}")
+                if hasattr(self, 'timer') and self.timer:
+                    self.timer.stop()
+                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                    try:
+                        self.fingerprint_scanner.CloseDevice()
+                        self.fingerprint_scanner.Terminate()
+                    except Exception:
+                        pass
+                    self.fingerprint_scanner = None
+                return
+
             if capture:
                 tmp, _ = capture
                 print(f"Fingerprint captured: {tmp}")  # Debugging log
@@ -463,29 +502,31 @@ class MainApp:
                 if results:
                     for email, username, password, fingerprint_blob in results:
                         if fingerprint_blob:
-                            # Convert fingerprint_blob (bytes) to list of ints for DBMatch
                             db_template = list(fingerprint_blob)
-                            # DBMatch expects two templates: enrolled and captured
                             if self.fingerprint_scanner.DBMatch(db_template, tmp) > 0:
                                 if hasattr(self, 'timer') and self.timer:
                                     self.timer.stop()
                                 if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
-                                    self.fingerprint_scanner.CloseDevice()
-                                    self.fingerprint_scanner.Terminate()
+                                    try:
+                                        self.fingerprint_scanner.CloseDevice()
+                                        self.fingerprint_scanner.Terminate()
+                                    except Exception:
+                                        pass
                                     self.fingerprint_scanner = None
                                 QMessageBox.information(None, "Login Successful", f"Welcome, {username}!")
                                 self.email_lineedit.setText(email)
                                 self.password_lineedit.setText(password)
                                 self.load_dashboard()
                                 return
-                    # If no match found after checking all fingerprints
                     QMessageBox.warning(None, "Login Failed", "Fingerprint not recognized. Please try again.")
-                # Only close the scanner after all matching attempts
                 if hasattr(self, 'timer') and self.timer:
                     self.timer.stop()
                 if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
-                    self.fingerprint_scanner.CloseDevice()
-                    self.fingerprint_scanner.Terminate()
+                    try:
+                        self.fingerprint_scanner.CloseDevice()
+                        self.fingerprint_scanner.Terminate()
+                    except Exception:
+                        pass
                     self.fingerprint_scanner = None
 
         except Exception as e:
@@ -494,12 +535,16 @@ class MainApp:
             if hasattr(self, 'timer') and self.timer:
                 self.timer.stop()
             if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
-                self.fingerprint_scanner.CloseDevice()
-                self.fingerprint_scanner.Terminate()
+                try:
+                    self.fingerprint_scanner.CloseDevice()
+                    self.fingerprint_scanner.Terminate()
+                except Exception:
+                    pass
                 self.fingerprint_scanner = None
             return
 
     def setup_create_account_page(self):
+
         # Stop fingerprint scanner and timer if running
         if hasattr(self, 'timer') and self.timer:
             self.timer.stop()
@@ -871,15 +916,29 @@ class MainApp:
                 self.role = result[0]
                 ui_file_path = dashboard_files.get(self.role)
 
+                # Reset the flag on successful login
+                self.login_failed_shown = False
                 if ui_file_path:
                     self.open_dashboard(ui_file_path)
+                else:
+                    # Defensive: shouldn't happen, but show error if no UI file for role
+                    if not getattr(self, 'login_failed_shown', False):
+                        login_failed_msg_box = QMessageBox()
+                        login_failed_msg_box.setIcon(QMessageBox.Warning)
+                        login_failed_msg_box.setWindowTitle("Login Failed")
+                        login_failed_msg_box.setText("Invalid email or password. Please try again.")
+                        login_failed_msg_box.exec()
+                        self.login_failed_shown = True
+                    return
             else:
-                # Show login failed message if no match is found
-                login_failed_msg_box = QMessageBox()
-                login_failed_msg_box.setIcon(QMessageBox.Warning)
-                login_failed_msg_box.setWindowTitle("Login Failed")
-                login_failed_msg_box.setText("Invalid email or password. Please try again.")
-                login_failed_msg_box.exec()
+                # Show login failed message only once per failed attempt
+                if not getattr(self, 'login_failed_shown', False):
+                    login_failed_msg_box = QMessageBox()
+                    login_failed_msg_box.setIcon(QMessageBox.Warning)
+                    login_failed_msg_box.setWindowTitle("Login Failed")
+                    login_failed_msg_box.setText("Invalid email or password. Please try again.")
+                    login_failed_msg_box.exec()
+                    self.login_failed_shown = True
                 return
 
         except mysql.connector.Error as err:
@@ -1102,7 +1161,11 @@ class MainApp:
         else:
             print("Error: task_tab not found.")
 
-        self.EmailScheduler.start_task_reminder_timer()
+        self.check_task_button = self.current_dashboard.findChild(QWidget, "check_task_btn")
+        if self.check_task_button:
+            self.check_task_button.clicked.connect(self.check_task)
+
+        # self.EmailScheduler.start_task_reminder_timer() Need to be refined!!
 
     def show_task_completion_pie_chart(self):
         # Fetch task completion data from the database
@@ -1216,8 +1279,9 @@ class MainApp:
                 self.validate_btn.hide()
             elif index == 1:
                 self.validate_btn.show()
-            else:
+            elif index == 0:
                 self.validate_btn.hide()
+                self.check_task_button.show()
 
     def open_link_browser(self):
         link = self.link_submitted_input.text()
@@ -1317,7 +1381,7 @@ class MainApp:
             self.cancel_btn.clicked.connect(self.validate_task_window.close)
 
     def download_file(self): # Need to read file type
-        selected_row = self.completedtask_table.currentRow()
+        selected_row = self.unvalidtask_table.currentRow()
         validate_index = selected_row
 
         try:
@@ -1335,10 +1399,18 @@ class MainApp:
                 file_data = result[0]
                 task_name = result[1]
 
+                self.file_dialog_filters = (
+                "Documents (*.docx);;"
+                "Excel Files (*.xlm);;"
+                "PowerPoint Files (*.pptx);;"
+                "PDF Files (*.pdf);;"
+                "All Files (*)"
+                )
+
                 # Use QFileDialog to save the file
                 file_dialog = QFileDialog()
                 suggested_name = f"{task_name}"
-                save_path, _ = file_dialog.getSaveFileName(self.validate_task_window, "Save File", suggested_name, "All Files (*)")
+                save_path, _ = file_dialog.getSaveFileName(self.validate_task_window, "Save File", suggested_name, self.file_dialog_filters)
 
                 if save_path:
                     with open(save_path, "wb") as file:
@@ -1784,6 +1856,7 @@ class MainApp:
 
                     if self.email:
                         DB.mycursor.execute(query, (fingerprint_blob, self.email))
+                       
                         DB.conn.commit()
                     else:
                         print("Error: Email is not defined or not set.")
@@ -2607,6 +2680,12 @@ class MainApp:
             self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
             self.currenttask_table.setVerticalHeaderLabels([])
 
+        self.finishedtask_table = self.current_dashboard.findChild(QTableWidget, "finishedtask_table")
+        if self.finishedtask_table:
+            self.finishedtask_table.setColumnCount(6)
+            self.finishedtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
+            self.finishedtask_table.setVerticalHeaderLabels([])
+
         # Fetch tasks assigned to the employee from the database
         try:
             query = """
@@ -2615,7 +2694,7 @@ class MainApp:
             """
             DB.mycursor.execute(query)
             tasks_info = DB.mycursor.fetchall()
-            current_tasks = [task for task in tasks_info if task[3] in ["Pending", "Completed - Not Validated"]]  # Filter tasks with statuses
+            current_tasks = [task for task in tasks_info if task[3] in ["Pending"]]  # Filter tasks with statuses
 
             # Populate the table with data from the database
             for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(current_tasks):
@@ -2625,6 +2704,17 @@ class MainApp:
                     self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
                     self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
                     self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+
+            finished_tasks = [task for task in tasks_info if task[3] in ["Completed - Not Validated"]]  # Filter tasks with statuses
+
+            # Populate the table with data from the database
+            for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(finished_tasks):
+                    self.finishedtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                    self.finishedtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                    self.finishedtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                    self.finishedtask_table.setItem(i, 3, QTableWidgetItem(status))
+                    self.finishedtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                    self.finishedtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
         except mysql.connector.Error as err:
             QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching tasks: {err.msg}")
@@ -2655,14 +2745,125 @@ class MainApp:
         if self.profile_btn:
             self.profile_btn.clicked.connect(self.show_profile)
 
+        self.check_task_button = self.current_dashboard.findChild(QWidget, "check_task_btn")
+        if self.check_task_button:
+            self.check_task_button.clicked.connect(self.check_task)
+
+    def check_task(self):
+        self.validate_task_window.show()
+
+        # Connection of widgets
+        self.check_name_task = self.validate_task_window.findChild(QLabel, "taskname_label")
+        self.check_req_task = self.validate_task_window.findChild(QLabel, "req_task_label_input")
+        self.check_prioritylevel = self.validate_task_window.findChild(QLabel, "prioritylevel_label_input")
+        self.check_description_task = self.validate_task_window.findChild(QTextBrowser, "des_task_view")
+        self.check_due_date_task = self.validate_task_window.findChild(QLabel, "duedate_label_input")
+        self.link_submitted_input = self.validate_task_window.findChild(QLabel, "link_submitted_input")
+        self.link_submitted_label = self.validate_task_window.findChild(QLabel, "link_submitted_label")
+        self.download_file_btn = self.validate_task_window.findChild(QPushButton, "download_file_btn")
+        self.open_link_btn = self.validate_task_window.findChild(QPushButton, "openlink_btn")
+        self._validate_btn = self.validate_task_window.findChild(QPushButton, "validate_task_btn")
+        self.cancel_btn = self.validate_task_window.findChild(QPushButton, "cancel_btn")
+
+        selected_row = self.finishedtask_table.currentRow()
+
+        if selected_row != -1:  # Ensure a row is selected
+            try:
+                # Fetch the task details from the database
+                query = """
+                    SELECT task_name, task_requirement, priority_level, task_description, due_date_time, submitted_link, submitted_file
+                    FROM Task_Storage
+                    WHERE status = 'Completed - Not Validated'
+                    LIMIT 1 OFFSET %s
+                """
+                DB.mycursor.execute(query, (selected_row,))
+                result = DB.mycursor.fetchone()
+
+                if result:
+                    task_name, task_requirement, priority_level, task_description, due_date_time, submitted_link, submitted_file = result
+                    if self.check_name_task:
+                        self.check_name_task.setText(task_name)
+                    if self.check_req_task:
+                        self.check_req_task.setText(task_requirement)
+                    if self.check_prioritylevel:
+                        self.check_prioritylevel.setText(priority_level)
+                    if self.check_description_task:
+                        self.check_description_task.setText(task_description)
+                    if self.check_due_date_task:
+                        self.check_due_date_task.setText(str(due_date_time))
+
+                    # Handle task requirement type
+                    if task_requirement == "Web Link":
+                        if self.link_submitted_label:
+                            self.link_submitted_label.setText("Link Submitted:")
+                        if self.link_submitted_input:
+                            self.link_submitted_input.setText(submitted_link if submitted_link else "No link available")
+                        if self.open_link_btn:
+                            self.open_link_btn.show()
+                            self.open_link_btn.clicked.connect(self.open_link_browser)
+                        if self.download_file_btn:
+                            self.download_file_btn.hide()
+                        if self._validate_btn:
+                            self._validate_btn.hide()
+
+                    elif task_requirement == "File":
+                        if self.link_submitted_label:
+                            self.link_submitted_label.setText("File Submitted:")
+                        if self.link_submitted_input:
+                            self.link_submitted_input.setText(submitted_file.name if hasattr(submitted_file, 'name') else (submitted_file if isinstance(submitted_file, str) else "Submitted File"))
+                        if self.open_link_btn:
+                            self.open_link_btn.hide()
+                        if self._validate_btn:
+                            self._validate_btn.hide()
+                    else:
+                        if self.link_submitted_input:
+                            self.link_submitted_input.setText("No submission available")
+                        if self.download_file_btn:
+                            self.download_file_btn.hide()
+                        if self.open_link_btn:
+                            self.open_link_btn.hide()
+                else:
+                    QMessageBox.warning(self.validate_task_window, "Error", "Task not found in the database.")
+            except mysql.connector.Error as err:
+                QMessageBox.critical(self.validate_task_window, "Database Error", f"An error occurred while fetching task details: {err.msg}")
+        else:
+            QMessageBox.warning(self.validate_task_window, "Error", "No task selected.")
+            self.validate_task_window.close()
+
+        # Buttons
+        if self.cancel_btn:
+            self.cancel_btn.clicked.connect(self.validate_task_window.close)
+
     def show_submit_task(self):  
         selected_row = self.currenttask_table.currentRow()
         if selected_row != -1:  # Ensure a row is selected
-            item = self.currenttask_table.item(selected_row, 1)
-            if item and item.text() == "Web Link":
-                self.submit_task()
-            elif item and item.text() == "File":
-                self.submit_file_task()
+            task_name_item = self.currenttask_table.item(selected_row, 0)
+            if task_name_item:
+                task_name = task_name_item.text()
+                try:
+                    # Fetch the task requirement from the database using the task name
+                    query = """
+                    SELECT task_requirement
+                    FROM Task_Storage
+                    WHERE task_name = %s AND status = 'Pending'
+                    LIMIT 1
+                    """
+                    DB.mycursor.execute(query, (task_name,))
+                    result = DB.mycursor.fetchone()
+                    if result:
+                        task_requirement = result[0]
+                        if task_requirement.lower() == "web link":
+                            self.submit_task()
+                        elif task_requirement.lower() == "file":
+                            self.submit_file_task()
+                        else:
+                            QMessageBox.warning(self.current_dashboard, "Unknown Requirement", "Unknown task requirement type.")
+                    else:
+                        QMessageBox.warning(self.current_dashboard, "Task Not Found", "Could not find the selected task in the database.")
+                except mysql.connector.Error as err:
+                    QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching task details: {err.msg}")
+            else:
+                QMessageBox.warning(self.current_dashboard, "No Selection", "Please select a task to submit.")
         else:
             no_selection_msg_box = QMessageBox()
             no_selection_msg_box.setIcon(QMessageBox.Warning)
@@ -2686,24 +2887,35 @@ class MainApp:
         self.link_requirement_edit = self.submit_task_window.findChild(QLineEdit, "link_requirement_edit")
         self.link_requirement_edit.setMaxLength(1000)
 
-        selected_row = self.currenttask_table.currentRow() 
-        submit_index = selected_row
+        selected_row = self.currenttask_table.currentRow()
+        if selected_row == -1:
+            QMessageBox.warning(self.submit_task_window, "No Selection", "Please select a task to submit.")
+            self.submit_task_window.close()
+            return
+
+        # Get the task name from the selected row in the table
+        task_name_item = self.currenttask_table.item(selected_row, 0)
+        if not task_name_item:
+            QMessageBox.warning(self.submit_task_window, "Error", "Could not determine the selected task.")
+            self.submit_task_window.close()
+            return
+        task_name = task_name_item.text()
 
         try:
-            # Fetch the task details from the database
+            # Fetch the task details from the database using the task name and status
             query = """
-            SELECT task_name, task_requirement, priority_level, task_description, due_date_time
-            FROM Task_Storage
-            WHERE status = 'Pending'
-            LIMIT %s, 1
+                SELECT task_name, task_requirement, priority_level, task_description, due_date_time
+                FROM Task_Storage
+                WHERE status = 'Pending' AND task_name = %s
+                LIMIT 1
             """
-            DB.mycursor.execute(query, (int(submit_index),))
+            DB.mycursor.execute(query, (task_name,))
             result = DB.mycursor.fetchone()
 
             if result:
-                task_name, task_requirement, priority_level, task_description, due_date_time = result
+                task_name_db, task_requirement, priority_level, task_description, due_date_time = result
                 if self.submit_name_task:
-                    self.submit_name_task.setText(task_name)
+                    self.submit_name_task.setText(task_name_db)
                 if self.submit_req_task:
                     self.submit_req_task.setText(task_requirement)
                 if self.submit_prioritylevel:
@@ -2716,14 +2928,12 @@ class MainApp:
                 QMessageBox.warning(self.submit_task_window, "Error", "Task not found in the database.")
         except mysql.connector.Error as err:
             QMessageBox.critical(self.submit_task_window, "Database Error", f"An error occurred while fetching task details: {err.msg}")
-    
+
         # Buttons
         if self.submit_btn:
-            self.submit_btn.clicked.connect(lambda: self.confirm_submit_task_to_db(submit_index))
+            self.submit_btn.clicked.connect(lambda: self.confirm_submit_task_to_db(selected_row))
         if self.cancel_btn:
             self.cancel_btn.clicked.connect(self.submit_task_window.close)
-
-        self.EmailScheduler.start_task_reminder_timer()
 
     def confirm_submit_task_to_db(self, submit_index):
         if self.link_requirement_edit and self.link_requirement_edit.text().strip():
@@ -2752,27 +2962,62 @@ class MainApp:
 
             if submit_result == QMessageBox.Yes:
                 try:
+                    # Get the task name from the selected row in the currenttask_table
+                    task_name_item = self.currenttask_table.item(submit_index, 0)
+                    if not task_name_item:
+                        QMessageBox.warning(self.submit_task_window, "Error", "Could not determine the selected task.")
+                        return
+                    task_name = task_name_item.text()
+
                     # Update the task status and insert the submitted link into the database
                     update_query = """
                         UPDATE Task_Storage
                         SET submitted_link = %s, status = %s, submitted_date_time = NOW()
                         WHERE task_name = %s
                     """
-                    # Ensure task_name_container is defined and populated
-                    global task_name_container
-                    if 'task_name_container' not in globals() or not task_name_container:
-                        DB.mycursor.execute("SELECT task_name FROM Task_Storage")
-                        task_name_container = [task[0] for task in DB.mycursor.fetchall()]
-
                     DB.mycursor.execute(update_query, (
                         self.link_requirement_edit.text(),
                         "Completed - Not Validated",
-                        task_name_container[submit_index]
+                        task_name
                     ))
                     DB.conn.commit()
 
-                    # Update the task in the current task table
-                    self.currenttask_table.setItem(submit_index, 3, QTableWidgetItem("Completed - Not Validated"))
+                    # Refresh the finishedtask_table to show the submitted task
+                    if hasattr(self, "finishedtask_table") and self.finishedtask_table:
+                        # Fetch updated finished tasks from the database
+                        query = """
+                            SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                            FROM Task_Storage
+                            WHERE status = 'Completed - Not Validated'
+                        """
+                        DB.mycursor.execute(query)
+                        finished_tasks = DB.mycursor.fetchall()
+                        self.finishedtask_table.setRowCount(len(finished_tasks))
+                        for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(finished_tasks):
+                            self.finishedtask_table.setItem(i, 0, QTableWidgetItem(tname))
+                            self.finishedtask_table.setItem(i, 1, QTableWidgetItem(treq))
+                            self.finishedtask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                            self.finishedtask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                            self.finishedtask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                            self.finishedtask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
+
+                    # Optionally, refresh the currenttask_table to remove the submitted task
+                    if hasattr(self, "currenttask_table") and self.currenttask_table:
+                        query = """
+                            SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                            FROM Task_Storage
+                            WHERE status = 'Pending'
+                        """
+                        DB.mycursor.execute(query)
+                        current_tasks = DB.mycursor.fetchall()
+                        self.currenttask_table.setRowCount(len(current_tasks))
+                        for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(current_tasks):
+                            self.currenttask_table.setItem(i, 0, QTableWidgetItem(tname))
+                            self.currenttask_table.setItem(i, 1, QTableWidgetItem(treq))
+                            self.currenttask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                            self.currenttask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                            self.currenttask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                            self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
 
                     # Close the submit task window
                     self.submit_task_window.close()
@@ -2824,22 +3069,34 @@ class MainApp:
         self.browse_file_btn = self.submit_file_task_window.findChild(QPushButton, "browse_file_btn")
 
         selected_row = self.currenttask_table.currentRow()
+        if selected_row == -1:
+            QMessageBox.warning(self.submit_file_task_window, "No Selection", "Please select a task to submit.")
+            self.submit_file_task_window.close()
+            return
 
-        # Fetch task details from the database
+        # Get the task name from the selected row in the table
+        task_name_item = self.currenttask_table.item(selected_row, 0)
+        if not task_name_item:
+            QMessageBox.warning(self.submit_file_task_window, "Error", "Could not determine the selected task.")
+            self.submit_file_task_window.close()
+            return
+        task_name = task_name_item.text()
+
+        # Fetch task details from the database using the task name
         try:
             query = """
                 SELECT task_name, task_requirement, priority_level, task_description, due_date_time
                 FROM Task_Storage
-                WHERE status = 'Pending'
-                LIMIT %s, 1
+                WHERE status = 'Pending' AND task_name = %s
+                LIMIT 1
             """
-            DB.mycursor.execute(query, (selected_row,))
+            DB.mycursor.execute(query, (task_name,))
             result = DB.mycursor.fetchone()
 
             if result:
-                task_name, task_requirement, priority_level, task_description, due_date_time = result
+                task_name_db, task_requirement, priority_level, task_description, due_date_time = result
                 if self.submit_file_name_task:
-                    self.submit_file_name_task.setText(task_name)
+                    self.submit_file_name_task.setText(task_name_db)
                 if self.submit_file_req_task:
                     self.submit_file_req_task.setText(task_requirement)
                 if self.submit_file_prioritylevel:
@@ -2866,18 +3123,24 @@ class MainApp:
             self.submit_file_cancel_btn.clicked.connect(self.submit_file_task_window.close)
 
     def browse_file(self):
-        file_dialog = QFileDialog()
-        file_path, _ = file_dialog.getOpenFileName(self.submit_file_task_window, "Select File", "", "All Files (*)")
+        file_dialog = QFileDialog()        
+        # Set file type options for the file dialog
+        self.file_dialog_filters = (
+            "Documents (*.docx);;"
+            "Excel Files (*.xlm);;"
+            "PowerPoint Files (*.pptx);;"
+            "PDF Files (*.pdf);;"
+            "All Files (*)"
+        )
+        file_path, _ = file_dialog.getOpenFileName(self.submit_file_task_window, "Select File", "", self.file_dialog_filters)
         if file_path:
             self.file_path_edit.setText(file_path)
             # Read the file data and store it temporarily
             with open(file_path, "rb") as file:
                 self.selected_file_data = file.read()
 
-    def confirm_submit_file_task(self, selected_row):
+    def confirm_submit_file_task(self, submit_index):
         if hasattr(self, 'selected_file_data') and self.selected_file_data:
-            submit_index = selected_row
-
             # Message box
             confirm_msg_box = QMessageBox()
             confirm_msg_box.setIcon(QMessageBox.Warning)
@@ -2893,29 +3156,63 @@ class MainApp:
 
             if submit_result == QMessageBox.Yes:
                 try:
-                    # Update the task status and insert the submitted file data
+                    # Get the task name from the selected row in the currenttask_table
+                    task_name_item = self.currenttask_table.item(submit_index, 0)
+                    if not task_name_item:
+                        QMessageBox.warning(self.submit_file_task_window, "Error", "Could not determine the selected task.")
+                        return
+                    task_name = task_name_item.text()
+
+                    # Update the task status and insert the submitted file into the database
                     update_query = """
                         UPDATE Task_Storage
                         SET submitted_file = %s, status = %s, submitted_date_time = NOW()
                         WHERE task_name = %s
                     """
-                    # Ensure task_name_container is defined and populated
-                    global task_name_container
-                    if 'task_name_container' not in globals() or not task_name_container:
-                        DB.mycursor.execute("SELECT task_name FROM Task_Storage")
-                        task_name_container = [task[0] for task in DB.mycursor.fetchall()]
-
                     DB.mycursor.execute(update_query, (
                         self.selected_file_data,
                         "Completed - Not Validated",
-                        task_name_container[submit_index]
+                        task_name
                     ))
                     DB.conn.commit()
 
-                    # Update the task in the current task table
-                    self.currenttask_table.setItem(submit_index, 3, QTableWidgetItem("Completed - Not Validated"))
+                    # Refresh the finishedtask_table to show the submitted task
+                    if hasattr(self, "finishedtask_table") and self.finishedtask_table:
+                        query = """
+                            SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                            FROM Task_Storage
+                            WHERE status = 'Completed - Not Validated'
+                        """
+                        DB.mycursor.execute(query)
+                        finished_tasks = DB.mycursor.fetchall()
+                        self.finishedtask_table.setRowCount(len(finished_tasks))
+                        for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(finished_tasks):
+                            self.finishedtask_table.setItem(i, 0, QTableWidgetItem(tname))
+                            self.finishedtask_table.setItem(i, 1, QTableWidgetItem(treq))
+                            self.finishedtask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                            self.finishedtask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                            self.finishedtask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                            self.finishedtask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
 
-                    # Close the submit task window
+                    # Optionally, refresh the currenttask_table to remove the submitted task
+                    if hasattr(self, "currenttask_table") and self.currenttask_table:
+                        query = """
+                            SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
+                            FROM Task_Storage
+                            WHERE status = 'Pending'
+                        """
+                        DB.mycursor.execute(query)
+                        current_tasks = DB.mycursor.fetchall()
+                        self.currenttask_table.setRowCount(len(current_tasks))
+                        for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(current_tasks):
+                            self.currenttask_table.setItem(i, 0, QTableWidgetItem(tname))
+                            self.currenttask_table.setItem(i, 1, QTableWidgetItem(treq))
+                            self.currenttask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                            self.currenttask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                            self.currenttask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                            self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
+
+                    # Close the submit file task window
                     self.submit_file_task_window.close()
 
                     # Show success message

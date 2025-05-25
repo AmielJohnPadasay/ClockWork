@@ -147,8 +147,14 @@ li.checked::marker { content: &quot;\2612&quot;; }
    </item>
    <item row="2" column="1">
     <widget class="QPushButton" name="browse_file_btn">
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>16777215</height>
+      </size>
+     </property>
      <property name="text">
-      <string>Browse Files</string>
+      <string>Browse Files...</string>
      </property>
     </widget>
    </item>
