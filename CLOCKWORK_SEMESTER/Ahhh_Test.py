@@ -16,8 +16,7 @@ from PySide6.QtCharts import QChart, QChartView, QPieSeries
 import time  # Import the time module for sleep function
 import smtplib
 from email.message import EmailMessage
-
-app_password = "uuye ugda doxg vhob"
+from PySide6.QtCore import QThread, Signal, QObject
 
 email = "amiel.padasay004@gmail.com"
 password = "amiel2004"
@@ -48,7 +47,7 @@ employee_suffix = ""
 employee_role = "Employee"
 employee_birthdate = "2004-12-29"
 employee_sex = "Male"
-
+"""
 #Temporary containers for user data
 # These will be used to store user data temporarily before inserting into the database
 email_container = []
@@ -116,13 +115,13 @@ suffix_container.append(employee_suffix)
 birthdate_container.append(birthdate)
 birthdate_container.append(manager_birthdate)
 birthdate_container.append(employee_birthdate)
-
+"""
 class Clockwork_Database:
     def __init__(self):
         self.conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="Pads_2004120"  # Pads_2004120 amiel_2004
+            password="amiel_2004"  # Pads_2004120 amiel_2004
         )
         self.mycursor = self.conn.cursor()
         self.initialize_database()
@@ -305,23 +304,34 @@ class EmailScheduler:
         except Exception as e:
             print(f"Error in send_task_reminders: {e}")
 
-    def start_task_reminder_timer(self):
-        """
-        Starts a QTimer to run send_task_reminders periodically in the background.
-        Ensures only one timer is running and works after the event loop starts.
-        """
-        if self.reminder_timer is not None:
-            self.reminder_timer.stop()
-            self.reminder_timer.deleteLater()
-            self.reminder_timer = None
 
-        self.reminder_timer = QTimer()
-        self.reminder_timer.setInterval(24 * 60 * 60 * 1000)  # 24 hours
-        self.reminder_timer.timeout.connect(self.send_task_reminders)
-        self.reminder_timer.start()
-        # Optionally, send reminders once at startup
-        self.send_task_reminders()
+class ReminderWorker(QObject):
+    finished = Signal()
 
+    def __init__(self):
+        super().__init__()
+        self.interval_sec = 24*60*60  # Default to 24 hours
+        self._running = True
+        self.email_reminder = EmailScheduler()
+
+        # Threading logic should be handled outside of ReminderWorker to avoid recursion and errors.
+        # Remove this block from __init__.
+
+    def run(self):
+        while self._running:
+            self.email_reminder.send_task_reminders()
+            QThread.sleep(self.interval_sec)
+            self.finished.emit()
+            self.stop()
+
+    def stop(self):
+        self._running = False
+
+        if hasattr(self, 'reminder_thread') and self.reminder_thread is not None:
+            self.worker.stop()
+            self.reminder_thread.quit()
+            self.reminder_thread.wait()
+            self.reminder_thread = None
 
 class MainApp:
     def __init__(self):
@@ -385,29 +395,34 @@ class MainApp:
 
         self.setup_login_page()  # Setup the login page
 
-        self.EmailScheduler = EmailScheduler()
+        self.reminder_worker = ReminderWorker()
+        self.reminder_thread = QThread()
+        """
+        self.reminder_worker.moveToThread(self.reminder_thread)
+        self.reminder_thread.started.connect(self.reminder_worker.run)
+        self.reminder_worker.finished.connect(self.reminder_thread.quit)
+        self.reminder_thread.start()
+        """
 
-    # Log-In Page
     def setup_login_page(self):
-        global email
         global password
         global email_container
         global password_container
         global role_container
 
         self.login_window.show()
-
+        
         self.log_in_stacked = self.login_window.findChild(QStackedWidget, "log_in_stacked")
-
+        
+        # Disconnect previous connections to avoid accessing deleted objects
         self.log_in_stacked.currentChanged.connect(self.handle_login_stacked_index_changed)
 
-        self.log_in_stacked.setCurrentIndex(1)
         self.log_in_with_fingerprint()
-
+        
         self.log_in_credentials_btn = self.login_window.findChild(QWidget, "log_in_credentials_btn")
         if self.log_in_credentials_btn:
             self.log_in_credentials_btn.clicked.connect(lambda: self.log_in_stacked.setCurrentIndex(0))
-
+        
         self.log_in_fingerprint_btn = self.login_window.findChild(QWidget, "log_in_fingerprint_btn")
         if self.log_in_fingerprint_btn:
             self.log_in_fingerprint_btn.clicked.connect(self.log_in_with_fingerprint)
@@ -431,44 +446,52 @@ class MainApp:
 
     # Set up logic to handle stacked widget index changes for fingerprint scanner
     def handle_login_stacked_index_changed(self, index):
-            if index == 0:
-                # Shut down fingerprint scanner if running
-                if hasattr(self, 'timer') and self.timer:
-                    self.timer.stop()
-                    self.timer = None
-                if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
-                    try:
-                        self.fingerprint_scanner.CloseDevice()
-                        self.fingerprint_scanner.Terminate()
-                    except Exception:
-                        pass
-                    self.fingerprint_scanner = None
-            elif index == 1:
-                # Turn on fingerprint scanner
-                self.log_in_with_fingerprint()
+        if index == 0:
+            # Shut down fingerprint scanner if running
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+                self.timer = None
+            if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                try:
+                    self.fingerprint_scanner.CloseDevice()
+                    self.fingerprint_scanner.Light("red")
+                    time.sleep(2)
+                    self.fingerprint_scanner.Terminate()
+                except Exception:
+                    pass
+                self.fingerprint_scanner = None
+        elif index == 1:
+            # Turn on fingerprint scanner
+            self.log_in_with_fingerprint()
 
-    def log_in_with_fingerprint(self):
+    def log_in_with_fingerprint(self): 
         try:
             self.log_in_stacked.setCurrentIndex(1)
             self.fingerprint_scanner = ZKFP2()
             self.fingerprint_scanner.Init()
+            time.sleep(1)  # Allow time for the scanner to initialize
             self.fingerprint_scanner.OpenDevice(0)
             self.fingerprint_scanner.Light("green")
 
             self.timer = QTimer()
-            self.timer.timeout.connect(self.check_fingerprint_for_login)
+            self.timer.timeout.connect(self._check_fingerprint_for_login)
             self.timer.start(100)  # Check every 100 milliseconds
 
-        except ImportError:
-            QMessageBox.critical(None, "Error", "ZKFP2 library is not installed or available.")
-            return
         except Exception as e:
+            # Clean up scanner if partially initialized
+            if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
+                try:
+                    self.fingerprint_scanner.CloseDevice()
+                    self.fingerprint_scanner.Terminate()
+                except Exception:
+                    pass
+                self.fingerprint_scanner = None
             QMessageBox.critical(None, "Error", f"An error occurred while initializing the fingerprint scanner: {str(e)}")
             return
 
-    def check_fingerprint_for_login(self):
+    def _check_fingerprint_for_login(self):
         try:
-            if not hasattr(self, 'fingerprint_scanner') or not self.fingerprint_scanner:
+            if not hasattr(self, 'fingerprint_scanner') or self.fingerprint_scanner is None:
                 QMessageBox.critical(None, "Error", "Fingerprint scanner is not initialized.")
                 return
 
@@ -482,9 +505,12 @@ class MainApp:
                     QMessageBox.critical(None, "Scanner Error", f"An error occurred: {str(e)}")
                 if hasattr(self, 'timer') and self.timer:
                     self.timer.stop()
+                    self.timer = None
                 if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
                     try:
                         self.fingerprint_scanner.CloseDevice()
+                        self.fingerprint_scanner.Light("red")
+                        time.sleep(2)
                         self.fingerprint_scanner.Terminate()
                     except Exception:
                         pass
@@ -496,24 +522,33 @@ class MainApp:
                 print(f"Fingerprint captured: {tmp}")  # Debugging log
 
                 # Fetch all fingerprints from the database
-                query = "SELECT email, username, password, fingerprint FROM Users_Info WHERE fingerprint IS NOT NULL"
+                query = "SELECT email, first_name, last_name, password, fingerprint FROM Users_Info WHERE fingerprint IS NOT NULL"
                 DB.mycursor.execute(query)
                 results = DB.mycursor.fetchall()
                 if results:
-                    for email, username, password, fingerprint_blob in results:
+                    for email, first_name, last_name, password, fingerprint_blob in results:
                         if fingerprint_blob:
-                            db_template = list(fingerprint_blob)
-                            if self.fingerprint_scanner.DBMatch(db_template, tmp) > 0:
+                            db_template = bytes(fingerprint_blob)
+                            # Ensure both templates are bytes for DBMatch
+                            try:
+                                match_result = self.fingerprint_scanner.DBMatch(db_template, tmp)
+                            except Exception as e:
+                                QMessageBox.critical(None, "Scanner Error", f"Error during fingerprint matching: {str(e)}")
+                                continue
+                            if match_result > 0:
                                 if hasattr(self, 'timer') and self.timer:
                                     self.timer.stop()
+                                    self.timer = None
                                 if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
                                     try:
                                         self.fingerprint_scanner.CloseDevice()
+                                        self.fingerprint_scanner.Light("red")
+                                        time.sleep(2)
                                         self.fingerprint_scanner.Terminate()
                                     except Exception:
                                         pass
                                     self.fingerprint_scanner = None
-                                QMessageBox.information(None, "Login Successful", f"Welcome, {username}!")
+                                QMessageBox.information(None, "Login Successful", f"Welcome, {first_name} {last_name}!")
                                 self.email_lineedit.setText(email)
                                 self.password_lineedit.setText(password)
                                 self.load_dashboard()
@@ -521,22 +556,30 @@ class MainApp:
                     QMessageBox.warning(None, "Login Failed", "Fingerprint not recognized. Please try again.")
                 if hasattr(self, 'timer') and self.timer:
                     self.timer.stop()
+                    self.timer = None
                 if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
                     try:
                         self.fingerprint_scanner.CloseDevice()
+                        self.fingerprint_scanner.Light("red")
+                        time.sleep(2)
                         self.fingerprint_scanner.Terminate()
                     except Exception:
                         pass
                     self.fingerprint_scanner = None
+                # Loop back: restart fingerprint scanning for login
+                self.log_in_with_fingerprint()
 
         except Exception as e:
             print(f"Error during fingerprint login: {str(e)}")  # Debugging log
             QMessageBox.critical(None, "Error", f"An error occurred during fingerprint login: {str(e)}")
             if hasattr(self, 'timer') and self.timer:
                 self.timer.stop()
+                self.timer = None
             if hasattr(self, 'fingerprint_scanner') and self.fingerprint_scanner:
                 try:
                     self.fingerprint_scanner.CloseDevice()
+                    self.fingerprint_scanner.Light("red")
+                    time.sleep(2)
                     self.fingerprint_scanner.Terminate()
                 except Exception:
                     pass
@@ -629,56 +672,68 @@ class MainApp:
     def validate_create_account(self):
         # Error handling for empty fields
         if not self.email_edit.text() or not self.last_name_edit.text() or not self.first_name_edit.text() or not self.password_edit.text() or not self.confirm_password_edit.text():
-            empty_msg_box = QMessageBox()
-            empty_msg_box.setIcon(QMessageBox.Warning)
-            empty_msg_box.setWindowTitle("Empty Fields")
-            empty_msg_box.setText("Please fill in all fields.")
-            empty_msg_box.exec()
+            self.show_message_once(
+                "empty_fields_create_account",
+                QMessageBox.Warning,
+                "Empty Fields",
+                "Please fill in all fields.",
+                self.create_account_window
+            )
             return
 
         # Check if "@gmail.com" and "@yahoo.com" and is in the email field
         elif "@gmail.com" not in self.email_edit.text() and "@yahoo.com" not in self.email_edit.text():
-            invalid_email_msg_box = QMessageBox()
-            invalid_email_msg_box.setIcon(QMessageBox.Warning)
-            invalid_email_msg_box.setWindowTitle("Invalid Email")
-            invalid_email_msg_box.setText("Please enter a valid Gmail address.")
-            invalid_email_msg_box.exec()
+            self.show_message_once(
+                "invalid_email_create_account",
+                QMessageBox.Warning,
+                "Invalid Email",
+                "Please enter a valid Gmail address.",
+                self.create_account_window
+            )
             return 
         
         # Check if the password is at least 8 characters long
         elif len(self.password_edit.text()) < 8:
-            less_8_msg_box = QMessageBox()
-            less_8_msg_box.setIcon(QMessageBox.Warning)
-            less_8_msg_box.setWindowTitle("Invalid Password")
-            less_8_msg_box.setText("Password must be at least 8 characters long.")
-            less_8_msg_box.exec()
+            self.show_message_once(
+                "invalid_password_create_account",
+                QMessageBox.Warning,
+                "Invalid Password",
+                "Password must be at least 8 characters long.",
+                self.create_account_window
+            )
             return
         
         # Check if others edit has text
         elif self.others_radio_btn.isChecked() and not self.others_edit.text():
-            empty_others_msg_box = QMessageBox()
-            empty_others_msg_box.setIcon(QMessageBox.Warning)
-            empty_others_msg_box.setWindowTitle("Empty Others Field")
-            empty_others_msg_box.setText("Please fill in the Others field.")
-            empty_others_msg_box.exec()
+            self.show_message_once(
+                "empty_others_create_account",
+                QMessageBox.Warning,
+                "Empty Others Field",
+                "Please fill in the Others field.",
+                self.create_account_window
+            )
             return
 
         # Check if the password and confirm password match
         elif self.password_edit.text() != self.confirm_password_edit.text():
-            not_match_msg_box = QMessageBox()
-            not_match_msg_box.setIcon(QMessageBox.Warning)
-            not_match_msg_box.setWindowTitle("Password Mismatch")
-            not_match_msg_box.setText("Passwords do not match.")
-            not_match_msg_box.exec()
+            self.show_message_once(
+                "password_mismatch_create_account",
+                QMessageBox.Warning,
+                "Password Mismatch",
+                "Passwords do not match.",
+                self.create_account_window
+            )
             return
         
         # Check if birthdate makes the user's age above or equal to 18 years old.
         elif (datetime.date.today() - self.birthdate_edit.date().toPython()).days // 365 < 18:
-            underage_msg_box = QMessageBox()
-            underage_msg_box.setIcon(QMessageBox.Warning)
-            underage_msg_box.setWindowTitle("Invalid Age")
-            underage_msg_box.setText("You must be at least 18 years old to create an account.")
-            underage_msg_box.exec()
+            self.show_message_once(
+                "underage_create_account",
+                QMessageBox.Warning,
+                "Invalid Age",
+                "You must be at least 18 years old to create an account.",
+                self.create_account_window
+            )
             return
 
         # Check if the email already exists in the official database
@@ -687,19 +742,23 @@ class MainApp:
             DB.mycursor.execute(query, (self.email_edit.text(),))
             result = DB.mycursor.fetchone()
             if result:
-                email_exists_msg_box = QMessageBox()
-                email_exists_msg_box.setIcon(QMessageBox.Warning)
-                email_exists_msg_box.setWindowTitle("Email Already Exists")
-                email_exists_msg_box.setText("This email is already registered.")
-                email_exists_msg_box.exec()
+                self.show_message_once(
+                    "email_exists_create_account",
+                    QMessageBox.Warning,
+                    "Email Already Exists",
+                    "This email is already registered.",
+                    self.create_account_window
+                )
                 return
             
         except mysql.connector.Error as err:
-            error_msg_box = QMessageBox()
-            error_msg_box.setIcon(QMessageBox.Critical)
-            error_msg_box.setWindowTitle("Database Error")
-            error_msg_box.setText(f"An error occurred while checking the email: {err.msg}")
-            error_msg_box.exec()
+            self.show_message_once(
+                "database_error_create_account",
+                QMessageBox.Critical,
+                "Database Error",
+                f"An error occurred while checking the email: {err.msg}",
+                self.create_account_window
+            )
             return
 
         # If all validations pass, store the account into the database
@@ -732,6 +791,11 @@ class MainApp:
             else:
                 QMessageBox.warning(None, "Error", "Cancel button not found in the fingerprint window.")
                 return
+
+            self.register_fingerprint_window.setWindowTitle("Register Fingerprint")
+            instruction_label = self.register_fingerprint_window.findChild(QLabel, "label")
+            if instruction_label:
+                instruction_label.setText("Please put your finger on the scanner to register your fingerprint.")
 
             try:
 
@@ -923,31 +987,37 @@ class MainApp:
                 else:
                     # Defensive: shouldn't happen, but show error if no UI file for role
                     if not getattr(self, 'login_failed_shown', False):
-                        login_failed_msg_box = QMessageBox()
-                        login_failed_msg_box.setIcon(QMessageBox.Warning)
-                        login_failed_msg_box.setWindowTitle("Login Failed")
-                        login_failed_msg_box.setText("Invalid email or password. Please try again.")
-                        login_failed_msg_box.exec()
+                        self.show_message_once(
+                            "login_failed",
+                            QMessageBox.Warning,
+                            "Login Failed",
+                            "Invalid email or password. Please try again.",
+                            self.login_window
+                        )
                         self.login_failed_shown = True
                     return
             else:
                 # Show login failed message only once per failed attempt
                 if not getattr(self, 'login_failed_shown', False):
-                    login_failed_msg_box = QMessageBox()
-                    login_failed_msg_box.setIcon(QMessageBox.Warning)
-                    login_failed_msg_box.setWindowTitle("Login Failed")
-                    login_failed_msg_box.setText("Invalid email or password. Please try again.")
-                    login_failed_msg_box.exec()
+                    self.show_message_once(
+                        "login_failed",
+                        QMessageBox.Warning,
+                        "Login Failed",
+                        "Invalid email or password. Please try again.",
+                        self.login_window
+                    )
                     self.login_failed_shown = True
                 return
 
         except mysql.connector.Error as err:
             # Handle database connection errors
-            error_msg_box = QMessageBox()
-            error_msg_box.setIcon(QMessageBox.Critical)
-            error_msg_box.setWindowTitle("Database Error")
-            error_msg_box.setText(f"An error occurred while connecting to the database: {err.msg}")
-            error_msg_box.exec()
+            self.show_message_once(
+                "database_error_login",
+                QMessageBox.Critical,
+                "Database Error",
+                f"An error occurred while connecting to the database: {err.msg}",
+                self.login_window
+            )
             return
 
     def open_dashboard(self, ui_file_path):
@@ -976,19 +1046,23 @@ class MainApp:
                         self.setup_employee_dashboard()
             else:
                 # Show error message if no matching user is found
-                error_msg_box = QMessageBox()
-                error_msg_box.setIcon(QMessageBox.Warning)
-                error_msg_box.setWindowTitle("Login Failed")
-                error_msg_box.setText("Invalid email or password. Please try again.")
-                error_msg_box.exec()
+                self.show_message_once(
+                    "login_failed",
+                    QMessageBox.Warning,
+                    "Login Failed",
+                    "Invalid email or password. Please try again.",
+                    self.login_window
+                )
 
         except mysql.connector.Error as err:
             # Handle database connection errors
-            error_msg_box = QMessageBox()
-            error_msg_box.setIcon(QMessageBox.Critical)
-            error_msg_box.setWindowTitle("Database Error")
-            error_msg_box.setText(f"An error occurred while connecting to the database: {err.msg}")
-            error_msg_box.exec()
+            self.show_message_once(
+                "database_error_login",
+                QMessageBox.Critical,
+                "Database Error",
+                f"An error occurred while connecting to the database: {err.msg}",
+                self.login_window
+            )
 
     #Supervisor's Menu
     def setup_supervisor_dashboard(self):
@@ -2129,12 +2203,13 @@ class MainApp:
             self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
             for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(pending_tasks):
-                self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                self.pendingtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                self.pendingtask_table.setItem(i, 3, QTableWidgetItem(status))
-                self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                if status == "Pending":
+                    self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                    self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                    self.pendingtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                    self.pendingtask_table.setItem(i, 3, QTableWidgetItem(status))
+                    self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                    self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
         # Fetch data from Task_Storage table for current and pending tasks
         try:
@@ -2235,13 +2310,6 @@ class MainApp:
         
         self.show_task_completion_pie_chart()
 
-        self.search_bar_tasks = self.current_dashboard.findChild(QLineEdit, "search_bar_tasks")
-
-        self.search_btn = self.current_dashboard.findChild(QPushButton, "search_btn")
-        if self.search_btn:
-            self.search_btn.clicked.connect(self.search_tasks)
-
-        # Assign Task
         self.assign_task_button = self.current_dashboard.findChild(QWidget, "assigntask_btn")
         if self.assign_task_button:
             self.assign_task_button.clicked.connect(self.show_assign_task)
@@ -2258,8 +2326,6 @@ class MainApp:
         self.log_out_button = self.dashboard_window.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
-
-        self.EmailScheduler.start_task_reminder_timer()
 
     def color_code_calendar_by_priority(self):
         try:
@@ -2622,14 +2688,14 @@ class MainApp:
                     self.currenttask_table.setColumnCount(6)
                     self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
-                    for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
+                    for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(tasks_info):
                         self.currenttask_table.insertRow(i)
-                        self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                        self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                        self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                        self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
-                        self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                        self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                        self.currenttask_table.setItem(i, 0, QTableWidgetItem(tname))
+                        self.currenttask_table.setItem(i, 1, QTableWidgetItem(treq))
+                        self.currenttask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                        self.currenttask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                        self.currenttask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                        self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
 
                 except mysql.connector.Error as err:
                     QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing tasks: {err.msg}")
@@ -2644,14 +2710,14 @@ class MainApp:
                     self.pendingtask_table.setColumnCount(6)
                     self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
-                    for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(pending_tasks):
+                    for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(pending_tasks):
                         self.pendingtask_table.insertRow(i)
-                        self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                        self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                        self.pendingtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                        self.pendingtask_table.setItem(i, 3, QTableWidgetItem(status))
-                        self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                        self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                        self.pendingtask_table.setItem(i, 0, QTableWidgetItem(tname))
+                        self.pendingtask_table.setItem(i, 1, QTableWidgetItem(treq))
+                        self.pendingtask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                        self.pendingtask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                        self.pendingtask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                        self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
 
                 except mysql.connector.Error as err:
                     QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing pending tasks: {err.msg}")
@@ -2708,14 +2774,14 @@ class MainApp:
                         self.currenttask_table.setColumnCount(6)
                         self.currenttask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
-                        for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(tasks_info):
+                        for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(tasks_info):
                             self.currenttask_table.insertRow(i)
-                            self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                            self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                            self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                            self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
-                            self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                            self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                            self.currenttask_table.setItem(i, 0, QTableWidgetItem(tname))
+                            self.currenttask_table.setItem(i, 1, QTableWidgetItem(treq))
+                            self.currenttask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                            self.currenttask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                            self.currenttask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                            self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
 
                     except mysql.connector.Error as err:
                         QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing tasks: {err.msg}")
@@ -2728,14 +2794,14 @@ class MainApp:
                         self.pendingtask_table.setColumnCount(6)
                         self.pendingtask_table.setHorizontalHeaderLabels(["Task", "Requirement", "Priority Level", "Status", "Assigned To", "Due Date"])
 
-                        for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(pending_tasks):
+                        for i, (tname, treq, tprio, tstatus, tgroup, tdate) in enumerate(pending_tasks):
                             self.pendingtask_table.insertRow(i)
-                            self.pendingtask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                            self.pendingtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                            self.pendingtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                            self.pendingtask_table.setItem(i, 3, QTableWidgetItem(status))
-                            self.pendingtask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                            self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                            self.pendingtask_table.setItem(i, 0, QTableWidgetItem(tname))
+                            self.pendingtask_table.setItem(i, 1, QTableWidgetItem(treq))
+                            self.pendingtask_table.setItem(i, 2, QTableWidgetItem(tprio))
+                            self.pendingtask_table.setItem(i, 3, QTableWidgetItem(tstatus))
+                            self.pendingtask_table.setItem(i, 4, QTableWidgetItem(tgroup))
+                            self.pendingtask_table.setItem(i, 5, QTableWidgetItem(str(tdate)))
 
                     except mysql.connector.Error as err:
                         QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while refreshing pending tasks: {err.msg}")
@@ -2753,13 +2819,31 @@ class MainApp:
                 return
 
     #Employee Menu
+    def get_logged_in_employee_name(self):
+        # Helper to get the full name of the logged-in employee
+        try:
+            query = "SELECT first_name, last_name FROM Users_Info WHERE email = %s"
+            DB.mycursor.execute(query, (self.email_lineedit.text(),))
+            result = DB.mycursor.fetchone()
+            if result:
+                return f"{result[0]} {result[1]}"
+        except Exception:
+            pass
+        return ""
+
+     # Only show tasks where the logged-in employee is in group_members
+    def is_assigned_to_employee(self, group_members):
+        if not group_members:
+            return False
+        # Split by comma, strip spaces, compare case-insensitive
+        return any(self.get_logged_in_employee_name().lower() == name.strip().lower() for name in group_members.split(","))
+
     def setup_employee_dashboard(self):
         self.log_out_button = self.current_dashboard.findChild(QWidget, "log_out_btn")
         if self.log_out_button:
             self.log_out_button.clicked.connect(self.log_out)
 
         self.stacked_Employee = self.current_dashboard.findChild(QStackedWidget, "stacked_Employee")
-
         self.stacked_Employee.setCurrentIndex(0)
 
         self.currenttask_table = self.current_dashboard.findChild(QTableWidget, "calendartask_table")
@@ -2776,33 +2860,33 @@ class MainApp:
 
         # Fetch tasks assigned to the employee from the database
         try:
+            employee_name = self.get_logged_in_employee_name()
             query = """
                 SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
                 FROM Task_Storage
             """
             DB.mycursor.execute(query)
             tasks_info = DB.mycursor.fetchall()
-            current_tasks = [task for task in tasks_info if task[3] in ["Pending"]]  # Filter tasks with statuses
 
-            # Populate the table with data from the database
+             # Pending tasks for this employee
+            current_tasks = [task for task in tasks_info if task[3] == "Pending" and self.is_assigned_to_employee(task[4])]
             for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(current_tasks):
-                    self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                    self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                    self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                    self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
-                    self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                    self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                self.currenttask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                self.currenttask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                self.currenttask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                self.currenttask_table.setItem(i, 3, QTableWidgetItem(status))
+                self.currenttask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                self.currenttask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
-            finished_tasks = [task for task in tasks_info if task[3] in ["Completed - Not Validated"]]  # Filter tasks with statuses
-
-            # Populate the table with data from the database
+            # Finished tasks for this employee
+            finished_tasks = [task for task in tasks_info if task[3] == "Completed - Not Validated" and self.is_assigned_to_employee(task[4])]
             for i, (task_name, task_requirement, priority_level, status, group_members, due_date_time) in enumerate(finished_tasks):
-                    self.finishedtask_table.setItem(i, 0, QTableWidgetItem(task_name))
-                    self.finishedtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
-                    self.finishedtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
-                    self.finishedtask_table.setItem(i, 3, QTableWidgetItem(status))
-                    self.finishedtask_table.setItem(i, 4, QTableWidgetItem(group_members))
-                    self.finishedtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
+                self.finishedtask_table.setItem(i, 0, QTableWidgetItem(task_name))
+                self.finishedtask_table.setItem(i, 1, QTableWidgetItem(task_requirement))
+                self.finishedtask_table.setItem(i, 2, QTableWidgetItem(priority_level))
+                self.finishedtask_table.setItem(i, 3, QTableWidgetItem(status))
+                self.finishedtask_table.setItem(i, 4, QTableWidgetItem(group_members))
+                self.finishedtask_table.setItem(i, 5, QTableWidgetItem(str(due_date_time)))
 
         except mysql.connector.Error as err:
             QMessageBox.critical(self.current_dashboard, "Database Error", f"An error occurred while fetching tasks: {err.msg}")
@@ -2836,7 +2920,11 @@ class MainApp:
         self.check_task_button = self.current_dashboard.findChild(QWidget, "check_task_btn")
         if self.check_task_button:
             self.check_task_button.clicked.connect(self.check_task)
-
+        
+        self.reminder_worker.moveToThread(self.reminder_thread)
+        self.reminder_thread.started.connect(self.reminder_worker.run)
+        self.reminder_thread.start()
+ 
     def check_task(self):
         self.validate_task_window.show()
 
@@ -2899,10 +2987,11 @@ class MainApp:
                             self.link_submitted_label.setText("File Submitted:")
                         if self.link_submitted_input:
                             self.link_submitted_input.setText(submitted_file.name if hasattr(submitted_file, 'name') else (submitted_file if isinstance(submitted_file, str) else "Submitted File"))
+                        if self.download_file_btn:
+                            self.download_file_btn.show()
+                            self.download_file_btn.clicked.connect(self.download_file)
                         if self.open_link_btn:
                             self.open_link_btn.hide()
-                        if self._validate_btn:
-                            self._validate_btn.hide()
                     else:
                         if self.link_submitted_input:
                             self.link_submitted_input.setText("No submission available")
@@ -3072,7 +3161,6 @@ class MainApp:
 
                     # Refresh the finishedtask_table to show the submitted task
                     if hasattr(self, "finishedtask_table") and self.finishedtask_table:
-                        # Fetch updated finished tasks from the database
                         query = """
                             SELECT task_name, task_requirement, priority_level, status, group_members, due_date_time
                             FROM Task_Storage
@@ -3334,7 +3422,7 @@ class MainApp:
             self.submit_file_task()
             return
 
-    def create_foreign_key_relationship(self):
+    def create_foreign_key_relationship(self): 
         try:
             # Ensure the foreign key constraint is added only if it doesn't already exist
             check_foreign_key_query = """
@@ -3367,21 +3455,64 @@ class MainApp:
     def show_join_group(self): # To be removed
         self.join_group_window.show()
 
+    def show_message_once(self, key, icon, title, text, parent=None):
+        """
+        Show a QMessageBox only once per key until reset_shown_messages is called.
+        :param key: Unique key for the message (e.g., 'login_failed')
+        :param icon: QMessageBox icon (e.g., QMessageBox.Warning)
+        :param title: Title of the message box
+        :param text: Message text
+        :param parent: Parent widget (optional)
+        """
+        if not hasattr(self, 'shown_messages'):
+            self.reset_shown_messages()
+        if not self.shown_messages.get(key, False):
+            msg_box = QMessageBox(parent)
+            msg_box.setIcon(icon)
+            msg_box.setWindowTitle(title)
+            msg_box.setText(text)
+            msg_box.exec()
+            self.shown_messages[key] = True
+
+    def reset_shown_messages(self):
+        """
+        Reset the shown_messages dictionary so that all messages can be shown again.
+        """
+        self.shown_messages = {}
+
+
     def show_login(self):
+        self.reset_shown_messages()
         self.login_window.show()
         self.create_account_window.hide()
         self.setup_login_page()
     
     def log_out(self):
-        self.current_dashboard.hide()
-        self.login_window.show()
-        self.setup_login_page()
-        self.log_in_stacked.setCurrentIndex(1)
+        # Show confirmation dialog before logging out
+        confirm_msg_box = QMessageBox()
+        confirm_msg_box.setIcon(QMessageBox.Warning)
+        confirm_msg_box.setWindowTitle("Confirm Logout")
+        confirm_msg_box.setText("Are you sure you want to log out?")
+        confirm_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        confirm_msg_box.setDefaultButton(QMessageBox.No)
+        confirm_msg_box.setEscapeButton(QMessageBox.No)
+        confirm_msg_box.setModal(True)
+        confirm_msg_box.setWindowModality(Qt.ApplicationModal)
 
-        self.email_lineedit.setText("")
-        self.password_lineedit.setText("")
+        result = confirm_msg_box.exec()
+
+        if result == QMessageBox.Yes:
+            self.reset_shown_messages()
+            self.current_dashboard.hide()
+            self.login_window.show()
+            self.setup_login_page()
+            self.log_in_stacked.setCurrentIndex(1)
+            self.email_lineedit.setText("")
+            self.password_lineedit.setText("")
+        # If No, do nothing (stay on dashboard)
 
     def run(self):
+        self.reset_shown_messages()
         self.login_window.show()
         sys.exit(self.app.exec())
 
